@@ -148,7 +148,7 @@ class Game:
                     output = action
         return output
         """
-        return minimax(self, 10, -math.inf, math.inf, True)
+        return minimax(self, 10, -math.inf, math.inf, True)[1]
 
 
 
