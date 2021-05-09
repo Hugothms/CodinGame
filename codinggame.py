@@ -167,13 +167,14 @@ def apply_action(game, action, action_opp): # OK
         if action_opp.type == ActionType.SEED and action.target_cell_id == action_opp.target_cell_id:
             print_debug("you and opponenet tried to SEED on the same cell -> ABORT")
             return next_game
-        next_game.my_sun -= len([tree for tree in game.trees if tree.is_mine == 1 and tree.size == 0])
+        next_game.my_sun -= len([tree for tree in game.get_my_trees() if tree.size == 0])
         next_game.trees.append(Tree(action.target_cell_id, 0, 1, 1))
         next_game.get_tree_at_index(action.origin_cell_id).is_dormant = True
         return next_game
     elif action.type == ActionType.GROW:
         tree_to_grow = game.get_tree_at_index(action.target_cell_id)
-        next_game.my_sun -= cost_grow[tree_to_grow.size] + len([tree for tree in game.trees if tree.is_mine == 1 and tree.size == tree_to_grow.size + 1])
+        print_debug(tree_to_grow.size)
+        next_game.my_sun -= cost_grow[tree_to_grow.size] + len([tree for tree in game.get_my_trees() if tree.size == (tree_to_grow.size + 1)])
         tree_to_grow.size += 1
     elif action.type == ActionType.COMPLETE:
         next_game.trees.reaction(game.get_tree_at_index(action.target_cell_id))
@@ -203,7 +204,7 @@ def find_all_possible_actions(game): # OK
         if not tree.is_dormant:
             if game.my_sun >= 4 and tree.size == 3:
                 actions.append(Action(ActionType.COMPLETE, tree.cell_index))
-            elif game.my_sun >= cost_grow[tree.size] + len([trees for trees in my_trees if trees.size == tree.size]):
+            elif tree.size < 3 and game.my_sun >= cost_grow[tree.size] + len([trees for trees in my_trees if trees.size == tree.size]):
                 actions.append(Action(ActionType.GROW, tree.cell_index))
             if (tree.size > 0) and game.my_sun >= len(game.get_my_seeds()):
                 visited_cells_ids = [-1, tree.cell_index]
@@ -249,8 +250,6 @@ def minimax(game, depth, alpha, beta, maximizingPlayer):
         return (minEval, best_action)
 
 
-
-
 number_of_cells = int(input())
 game = Game()
 for i in range(number_of_cells):
@@ -264,7 +263,6 @@ for i in range(number_of_cells):
     print_debug("neigh_4: " + str(neigh_4))
     print_debug("neigh_5: " + str(neigh_5))
     game.board.append(Cell(cell_index, richness, [neigh_0, neigh_1, neigh_2, neigh_3, neigh_4, neigh_5]))
-
 
 def print_state_game(game):
     print_debug("day: " + str(game.day))
@@ -292,56 +290,31 @@ def print_state_game(game):
 
 while True:
     day = int(input())
-    # print("day: " + str(day), file=sys.stderr, flush=Tru)
     game.day = day
-
     nutrients = int(input())
-    # print("nutrients: " + str(nutrients), file=sys.stderr, flush=True)
     game.nutrients = nutrients
-
     sun, score = [int(i) for i in input().split()]
-    # print("sun: " + str(sun), file=sys.stderr, flush=True)
-    # print("score: " + str(score), file=sys.stderr, flush=True)
     game.my_sun = sun
     game.my_score = score
-
     opp_sun, opp_score, opp_is_waiting = [int(i) for i in input().split()]
-    # print("opp_sun: " + str(opp_sun), file=sys.stderr, flush=True)
-    # print("opp_score: " + str(opp_score), file=sys.stderr, flush=True)
-    # print("opp_is_waiting: " + str(opp_is_waiting), file=sys.stderr, flush=True)
     game.opponent_sun = opp_sun
     game.opponent_score = opp_score
     game.opponent_is_waiting = opp_is_waiting
-
     number_of_trees = int(input())
-    # print("number_of_trees: " + str(number_of_trees), file=sys.stderr, flush=True)
     game.trees.clear()
     for i in range(number_of_trees):
         inputs = input().split()
-
         cell_index = int(inputs[0])
-        # print(" -cell_index: " + str(cell_index), file=sys.stderr, flush=True)
-
         size = int(inputs[1])
-        # print("  size: " + str(size), file=sys.stderr, flush=True)
-
         is_mine = inputs[2] != "0"
-        # print("  is_mine: " + str(is_mine), file=sys.stderr, flush=True)
-
         is_dormant = inputs[3] != "0"
-        # print("  is_dormant: " + str(is_dormant), file=sys.stderr, flush=True)
-
         game.trees.append(Tree(cell_index, size, is_mine == 1, is_dormant))
-
     number_of_possible_actions = int(input())
-    # print("number_of_possible_actions: " + str(number_of_possible_actions), file=sys.stderr, flush=True)
-
     game.possible_actions.clear()
     for i in range(number_of_possible_actions):
         possible_action = input()
-        # print(" -possible_action: " + str(possible_action), file=sys.stderr, flush=True)
         game.possible_actions.append(Action.parse(possible_action))
 
-    print_state_game(game)
+    # print_state_game(game)
 
     print(game.compute_next_action())
