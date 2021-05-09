@@ -160,20 +160,20 @@ class Game:
 ### MINIMAX ALGORITHM ###
 
 def apply_action(game, action, action_opp): # OK
-    next_game = Game()
+    next_game = game
     if action.type == ActionType.WAIT:
         return next_game
     elif action.type == ActionType.SEED:
         if action_opp.type == ActionType.SEED and action.target_cell_id == action_opp.target_cell_id:
             print_debug("you and opponenet tried to SEED on the same cell -> ABORT")
-            return
+            return next_game
         next_game.my_sun -= len([tree for tree in game.trees if tree.is_mine == 1 and tree.size == 0])
         next_game.trees.append(Tree(action.target_cell_id, 0, 1, 1))
         next_game.get_tree_at_index(action.origin_cell_id).is_dormant = True
-        return
+        return next_game
     elif action.type == ActionType.GROW:
         tree_to_grow = game.get_tree_at_index(action.target_cell_id)
-        next_game.my_sun -= cost_grow[tree_to_grow.size] + len([tree for tree in game.threes if tree.is_mine == 1 and tree.size == tree_to_grow.size + 1])
+        next_game.my_sun -= cost_grow[tree_to_grow.size] + len([tree for tree in game.trees if tree.is_mine == 1 and tree.size == tree_to_grow.size + 1])
         tree_to_grow.size += 1
     elif action.type == ActionType.COMPLETE:
         next_game.trees.reaction(game.get_tree_at_index(action.target_cell_id))
@@ -208,11 +208,11 @@ def find_all_possible_actions(game): # OK
             if (tree.size > 0) and game.my_sun >= len(game.get_my_seeds()):
                 visited_cells_ids = [-1, tree.cell_index]
                 actions.extend(all_seed_actions_from_tree(game, tree.cell_index, tree.size, visited_cells_ids))
-    print_debug("***********ACTIONS:***********")
+    # print_debug("***********ACTIONS:***********")
     # actions.sort(key=sort_actions)
-    for action in actions:
-        print_debug(action)
-    print_debug("**************")
+    # for action in actions:
+    #     print_debug(action)
+    # print_debug("**************")
     return actions # to try best cadidate first (like COMPLETE action before others)
 
 
