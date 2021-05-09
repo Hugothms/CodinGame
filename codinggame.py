@@ -183,18 +183,19 @@ def apply_action(game, action, action_opp): # OK
 
 def all_seed_actions_from_tree(game, cell_index, depth, visited_cells_ids): # OK
     actions = []
-    for neighbor_id in game.get_cell_at_index(cell_index).neighbors:
-        if neighbor_id not in visited_cells_ids:
+    neighbors = game.get_cell_at_index(cell_index).neighbors
+    for neighbor_id in neighbors:
+        if neighbor_id != -1 and neighbor_id not in visited_cells_ids:
             visited_cells_ids.append(neighbor_id)
             actions.append(Action(ActionType.SEED, neighbor_id, cell_index))
             if depth > 0:
-                actions.extend(all_seed_actions_from_tree(game, neighbor_id, depth - 1, visited_cells_ids))
+                actions.extend(all_seed_actions_from_tree(game, cell_index, depth - 1, visited_cells_ids))
     return actions
 
 def find_all_possible_actions(game): # OK
-    actions = []
+    actions = ['WAIT']
     for tree in game.trees:
-        if not tree.is_dormant:
+        if tree.is_mine == 1 and not tree.is_dormant:
             if tree.size == 3:
                 actions.append(Action(ActionType.COMPLETE, tree.cell_index))
             else:
@@ -204,6 +205,9 @@ def find_all_possible_actions(game): # OK
                 actions.extend(all_seed_actions_from_tree(game, tree.cell_index, tree.size, visited_cells_ids))
     # for external_cell in range(19, 37):
     #     actions.append(Action(ActionType.SEED, external_cell))
+    print_debug("***********ACTIONS:***********")
+    for action in actions:
+        print_debug(action)
     return actions.sort(key=sort_actions) # to try best cadidate first (like COMPLETE action before others)
 
 
