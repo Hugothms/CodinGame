@@ -95,6 +95,9 @@ class Game:
     def get_my_trees(self):
         return [trees for trees in self.trees if trees.is_mine == 1]
 
+    def get_my_seeds(self):
+        return [seeds for seeds in self.get_my_trees() if seeds.size == 0]
+
     def get_tree_at_index(self, index):
         for tree in self.trees:
             if tree.cell_index == index:
@@ -185,7 +188,7 @@ def all_seed_actions_from_tree(game, cell_index, depth, visited_cells_ids): # OK
     actions = []
     neighbors = game.get_cell_at_index(cell_index).neighbors
     for neighbor_id in neighbors:
-        if neighbor_id != -1 and neighbor_id not in visited_cells_ids:
+        if neighbor_id not in visited_cells_ids and game.get_cell_at_index(neighbor_id).richness > 0:
             visited_cells_ids.append(neighbor_id)
             actions.append(Action(ActionType.SEED, neighbor_id, cell_index))
             if depth > 0:
@@ -194,21 +197,22 @@ def all_seed_actions_from_tree(game, cell_index, depth, visited_cells_ids): # OK
 
 def find_all_possible_actions(game): # OK
     actions = ['WAIT']
-    for tree in game.trees:
-        if tree.is_mine == 1 and not tree.is_dormant:
-            if tree.size == 3:
+    my_trees = game.get_my_trees()
+    for tree in my_trees:
+        if not tree.is_dormant:
+            if game.my_sun >= 4 and tree.size == 3:
                 actions.append(Action(ActionType.COMPLETE, tree.cell_index))
-            else:
+            elif game.my_sun >= cost_grow[tree.size] + len([trees for trees in my_trees if trees.size == tree.size]):
                 actions.append(Action(ActionType.GROW, tree.cell_index))
-            if (tree.size > 0):
-                visited_cells_ids = [tree.cell_index]
+            if (tree.size > 0) and game.my_sun >= len(game.get_my_seeds()):
+                visited_cells_ids = [-1, tree.cell_index]
                 actions.extend(all_seed_actions_from_tree(game, tree.cell_index, tree.size, visited_cells_ids))
-    # for external_cell in range(19, 37):
-    #     actions.append(Action(ActionType.SEED, external_cell))
     print_debug("***********ACTIONS:***********")
+    # actions.sort(key=sort_actions)
     for action in actions:
         print_debug(action)
-    return actions.sort(key=sort_actions) # to try best cadidate first (like COMPLETE action before others)
+    print_debug("**************")
+    return actions # to try best cadidate first (like COMPLETE action before others)
 
 
 # if worse than options already explored -> do not explore
