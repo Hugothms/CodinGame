@@ -153,7 +153,6 @@ class Game:
 
 
 
-
 ### MINIMAX ALGORITHM ###
 
 def apply_action(game, action, action_opp): # OK
@@ -164,7 +163,10 @@ def apply_action(game, action, action_opp): # OK
         if action_opp.type == ActionType.SEED and action.target_cell_id == action_opp.target_cell_id:
             print_debug("you and opponenet tried to SEED on the same cell -> ABORT")
             return next_game
-        next_game.my_sun -= len([tree for tree in game.get_my_trees() if tree.size == 0])
+        print_debug("&&&&&&&&&&&&&&")
+        for tree in [tree for tree in game.get_my_trees() if (tree.size == 0)]:
+            print_debug(tree.cell_index)
+        next_game.my_sun -= len([tree for tree in game.get_my_trees() if (tree.size == 0)])
         next_game.trees.append(Tree(action.target_cell_id, 0, 1, 1))
         next_game.get_tree_at_index(action.origin_cell_id).is_dormant = True
         return next_game
@@ -229,14 +231,14 @@ def get_initial_sun_exposed_cells(day):
     return sun_exposed_cells
 
 def sun_in_row(game, sun_exposed_cell, shadow_range, shadow_size_tree):
-    print_debug("start sun_in_row: " + str(sun_exposed_cell) + '\t' + str(shadow_range))
+    # print_debug("start sun_in_row: " + str(sun_exposed_cell) + '\t' + str(shadow_range))
     if sun_exposed_cell == -1:
         return (0, 0)
     my_sun = 0
     opponent_sun = 0
     tree = game.get_tree_at_index(sun_exposed_cell)
     if tree is not None:
-        print_debug('tree')
+        # print_debug('tree')
         if shadow_range == 0 or tree.size > shadow_size_tree:
             if tree.is_mine:
                 my_sun += tree.size
@@ -252,12 +254,12 @@ def sun_in_row(game, sun_exposed_cell, shadow_range, shadow_size_tree):
 def new_turn(game, new_day=False):
     initial_sun_exposed_cells = get_initial_sun_exposed_cells(game.day)
     for sun_exposed_cell in initial_sun_exposed_cells:
-        print_debug("+++++++++++++++++++")
+        # print_debug("+++++++++++++++++++")
         suns = sun_in_row(game, sun_exposed_cell, 0, 0)
         game.my_sun += suns[0]
         game.opponent_sun += suns[1]
-        print_debug("MINE: " + str(suns[0]))
-        print_debug("OPPO: " + str(suns[1]))
+        # print_debug("MINE: " + str(suns[0]))
+        # print_debug("OPPO: " + str(suns[1]))
     print_debug("final my_sun: " + str(game.my_sun))
     print_debug("final opponent_sun: " + str(game.opponent_sun))
     if new_day:
@@ -272,6 +274,7 @@ def minimax(game, depth, alpha, beta, maximizingPlayer):
     if maximizingPlayer:
         maxEval = -math.inf
         for action in find_all_possible_actions(game):
+            print_debug(action)
             action_opp = Action(ActionType.WAIT)
             child = apply_action(game, action, action_opp)
             child = new_turn(child, action.type == ActionType.WAIT and action_opp.type == ActionType.WAIT)
@@ -366,4 +369,4 @@ while True:
     # print_state_game(game)
 
     # print(game.compute_next_action())
-    print(minimax(game, 2, -math.inf, math.inf, True)[1])
+    print(minimax(game, 1, -math.inf, math.inf, True)[1])
