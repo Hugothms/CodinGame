@@ -1,0 +1,3 @@
+ne pas planter si size < 2
+trois arbres de size 3 au max (trop couteux apres)
+
