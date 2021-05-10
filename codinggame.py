@@ -77,7 +77,7 @@ class Game:
         self.possible_actions = []
         self.my_sun = 0
         self.my_score = 0
-        self.opponents_sun = 0
+        self.opponent_sun = 0
         self.opponent_score = 0
         self.opponent_is_waiting = 0
 
@@ -116,7 +116,6 @@ class Game:
             #print_debug('Wait strategique ? pas sur mdr')
             return "WAIT Wait strategique ?"
         """
-        """
         smaller_cell = 37
         bigger_cell = 0
         best_action = ActionType.WAIT
@@ -150,8 +149,6 @@ class Game:
                     bigger_cell = action.target_cell_id
                     output = action
         return output
-        """
-        return minimax(self, 10, -math.inf, math.inf, True)[1]
 
 
 
@@ -185,7 +182,16 @@ def apply_action(game, action, action_opp): # OK
         print_debug("error action invalid")
     return next_game
 
+"""
+def position_is_optimal(Move &move):
+    for (int i = 0; i < 6; i++)
+        if (game.cells[move.cell_index].neighbours[i] != -1 && game.cells[game.cells[move.cell_index].neighbours[i]].neighbours[(i + 1) % 5] != -1)
+            if (game.cells[game.cells[move.cell_index].neighbours[i]].neighbours[(i + 1) % 5] == move.target_index)
+                return (true);
+    return (false);
+"""
 
+# should be replaced to find only interesting seed actions
 def all_seed_actions_from_tree(game, cell_index, depth, visited_cells_ids): # OK
     actions = []
     neighbors = game.get_cell_at_index(cell_index).neighbors
@@ -216,6 +222,57 @@ def find_all_possible_actions(game): # OK
     # print_debug("**************")
     return actions # to try best cadidate first (like COMPLETE action before others)
 
+def get_initial_sun_exposed_cells(day):
+    sun_exposed_cells = []
+    for num in range(6, 13):
+        sun_exposed_cells.append((num + 3 * day) % 18 + 19)
+    return sun_exposed_cells
+
+def sun_in_row(game, sun_exposed_cell, shadow):
+    print_debug("start sun_in_row: " + str(sun_exposed_cell) + '\t' + str(shadow))
+    my_sun = 0
+    opponent_sun = 0
+    tree = game.get_tree_at_index(sun_exposed_cell)
+    if tree is not None:
+        if shadow == 0:
+            if tree.is_mine:
+                my_sun += tree.size
+            else:
+                opponent_sun += tree.size
+        shadow = max(tree.size, shadow)
+    shadow += 1
+    while shadow > 0:
+        cell = game.get_cell_at_index(sun_exposed_cell)
+        shadow -= 1
+        if not cell == -1:
+            sun_exposed_cell = cell.neighbors[day % 6]
+    if not sun_exposed_cell == -1:
+        suns = sun_in_row(game, sun_exposed_cell, max(shadow - 1, 0))
+        my_sun += suns[0]
+        opponent_sun += suns[1]
+    return (my_sun, opponent_sun)
+
+def new_turn(game, new_day=False):
+    initial_sun_exposed_cells = get_initial_sun_exposed_cells(game.day)
+    for sun_exposed_cell in initial_sun_exposed_cells:
+        print_debug("+++++++++++++++++++")
+        suns = sun_in_row(game, sun_exposed_cell, 0)
+        game.my_sun += suns[0]
+        game.opponent_sun += suns[1]
+        print_debug("MINE: " + str(suns[0]))
+        print_debug("OPPO: " + str(suns[1]))
+
+    print_debug("final my_sun: " + str(game.my_sun))
+    print_debug("final opponent_sun: " + str(game.opponent_sun))
+    # for tree in game.trees:
+    #     neighbor = game.get_cell_at_index(tree.cell_index)
+    #     for distance in range(tree.size):
+    #         neighbor = neighbor.neighbors[game.day % 6]
+    #         game.trees.remove(shadowed_trees)
+    game.my_sun += 0
+    if new_day:
+        game.day += 1
+    return game
 
 # if worse than options already explored -> do not explore
 def minimax(game, depth, alpha, beta, maximizingPlayer):
@@ -227,6 +284,7 @@ def minimax(game, depth, alpha, beta, maximizingPlayer):
         for action in find_all_possible_actions(game):
             action_opp = Action(ActionType.WAIT)
             child = apply_action(game, action, action_opp)
+            child = new_turn(child)
             eval = minimax(child, depth - 1, alpha, beta, False)[0]
             if eval > maxEval:
                 maxEval = eval
@@ -254,14 +312,14 @@ number_of_cells = int(input())
 game = Game()
 for i in range(number_of_cells):
     cell_index, richness, neigh_0, neigh_1, neigh_2, neigh_3, neigh_4, neigh_5 = [int(j) for j in input().split()]
-    print_debug("cell_index: " + str(cell_index))
-    print_debug("richness: " + str(richness))
-    print_debug("neigh_0: " + str(neigh_0))
-    print_debug("neigh_1: " + str(neigh_1))
-    print_debug("neigh_2: " + str(neigh_2))
-    print_debug("neigh_3: " + str(neigh_3))
-    print_debug("neigh_4: " + str(neigh_4))
-    print_debug("neigh_5: " + str(neigh_5))
+    # print_debug("cell_index: " + str(cell_index))
+    # print_debug("richness: " + str(richness))
+    # print_debug("neigh_0: " + str(neigh_0))
+    # print_debug("neigh_1: " + str(neigh_1))
+    # print_debug("neigh_2: " + str(neigh_2))
+    # print_debug("neigh_3: " + str(neigh_3))
+    # print_debug("neigh_4: " + str(neigh_4))
+    # print_debug("neigh_5: " + str(neigh_5))
     game.board.append(Cell(cell_index, richness, [neigh_0, neigh_1, neigh_2, neigh_3, neigh_4, neigh_5]))
 
 def print_state_game(game):
@@ -272,7 +330,7 @@ def print_state_game(game):
     print_debug("sun: " + str(game.my_sun))
     print_debug("score: " + str(game.my_score))
 
-    print_debug("opp_sun: " + str(game.opponents_sun))
+    print_debug("opp_sun: " + str(game.opponent_sun))
     print_debug("opp_score: " + str(game.opponent_score))
     print_debug("opp_is_waiting: " + str(game.opponent_is_waiting))
 
@@ -317,4 +375,5 @@ while True:
 
     # print_state_game(game)
 
-    print(game.compute_next_action())
+    # print(game.compute_next_action())
+    print(minimax(game, 2, -math.inf, math.inf, True)[1])
