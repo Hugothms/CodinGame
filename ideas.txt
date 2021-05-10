@@ -1,3 +1,24 @@
-ne pas planter si size < 2
+ne planter si size < 2
 trois arbres de size 3 au max (trop couteux apres)
+
+seed > grow > complete
+
+1 seed sur 2:
+	-plus opti en points (plus au centre)
+	-la ou il y le moins d'ombre(en augmentant la size de tous les tree de 1 pour avoir de l'avance) backtracking
+
+privilegier beaucoup de gain de soleil
+
+
+complete turn 19 ou + de 4 arbres
+seed avant turn 12 taille 2 mini
+
+3 etapes 0 14 19 24:
+avant 14 seed dans richness 2
+ensuite grow les plus gros en priorité ou seed si on peux pas grow jusqua 19
+ensuite grow et complete
+
+ferme a soleil sur les bords et grow + complete au centre
+
+check l'ombre sauf si l'objectif est de grow pour complete
 
