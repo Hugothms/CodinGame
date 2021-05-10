@@ -187,11 +187,11 @@ def position_is_optimal(Move &move):
     for (int i = 0; i < 6; i++)
         if (game.cells[move.cell_index].neighbours[i] != -1 && game.cells[game.cells[move.cell_index].neighbours[i]].neighbours[(i + 1) % 5] != -1)
             if (game.cells[game.cells[move.cell_index].neighbours[i]].neighbours[(i + 1) % 5] == move.target_index)
-                return (true);
-    return (false);
+                return True;
+    return False;
 """
 
-# should be replaced to find only interesting seed actions
+# should be replaced to find only interesting seed actions (with position_is_optimal)
 def all_seed_actions_from_tree(game, cell_index, depth, visited_cells_ids): # OK
     actions = []
     neighbors = game.get_cell_at_index(cell_index).neighbors
