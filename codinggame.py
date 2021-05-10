@@ -228,48 +228,38 @@ def get_initial_sun_exposed_cells(day):
         sun_exposed_cells.append((num + 3 * day) % 18 + 19)
     return sun_exposed_cells
 
-def sun_in_row(game, sun_exposed_cell, shadow):
-    print_debug("start sun_in_row: " + str(sun_exposed_cell) + '\t' + str(shadow))
+def sun_in_row(game, sun_exposed_cell, shadow_range, shadow_size_tree):
+    print_debug("start sun_in_row: " + str(sun_exposed_cell) + '\t' + str(shadow_range))
+    if sun_exposed_cell == -1:
+        return (0, 0)
     my_sun = 0
     opponent_sun = 0
     tree = game.get_tree_at_index(sun_exposed_cell)
     if tree is not None:
-        if shadow == 0:
+        print_debug('tree')
+        if shadow_range == 0 or tree.size > shadow_size_tree:
             if tree.is_mine:
                 my_sun += tree.size
             else:
                 opponent_sun += tree.size
-        shadow = max(tree.size, shadow)
-    shadow += 1
-    while shadow > 0:
-        cell = game.get_cell_at_index(sun_exposed_cell)
-        shadow -= 1
-        if not cell == -1:
-            sun_exposed_cell = cell.neighbors[day % 6]
-    if not sun_exposed_cell == -1:
-        suns = sun_in_row(game, sun_exposed_cell, max(shadow - 1, 0))
-        my_sun += suns[0]
-        opponent_sun += suns[1]
+        shadow_size_tree = tree.size
+        shadow_range = max(tree.size + 1, shadow_range) #OK
+    suns = sun_in_row(game, game.get_cell_at_index(sun_exposed_cell).neighbors[day % 6], max(shadow_range - 1, 0), shadow_size_tree)
+    my_sun += suns[0]
+    opponent_sun += suns[1]
     return (my_sun, opponent_sun)
 
 def new_turn(game, new_day=False):
     initial_sun_exposed_cells = get_initial_sun_exposed_cells(game.day)
     for sun_exposed_cell in initial_sun_exposed_cells:
         print_debug("+++++++++++++++++++")
-        suns = sun_in_row(game, sun_exposed_cell, 0)
+        suns = sun_in_row(game, sun_exposed_cell, 0, 0)
         game.my_sun += suns[0]
         game.opponent_sun += suns[1]
         print_debug("MINE: " + str(suns[0]))
         print_debug("OPPO: " + str(suns[1]))
-
     print_debug("final my_sun: " + str(game.my_sun))
     print_debug("final opponent_sun: " + str(game.opponent_sun))
-    # for tree in game.trees:
-    #     neighbor = game.get_cell_at_index(tree.cell_index)
-    #     for distance in range(tree.size):
-    #         neighbor = neighbor.neighbors[game.day % 6]
-    #         game.trees.remove(shadowed_trees)
-    game.my_sun += 0
     if new_day:
         game.day += 1
     return game
@@ -284,7 +274,7 @@ def minimax(game, depth, alpha, beta, maximizingPlayer):
         for action in find_all_possible_actions(game):
             action_opp = Action(ActionType.WAIT)
             child = apply_action(game, action, action_opp)
-            child = new_turn(child)
+            child = new_turn(child, action.type == ActionType.WAIT and action_opp.type == ActionType.WAIT)
             eval = minimax(child, depth - 1, alpha, beta, False)[0]
             if eval > maxEval:
                 maxEval = eval
