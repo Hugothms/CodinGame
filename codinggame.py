@@ -62,9 +62,9 @@ def sort_actions(action):
 
 def print_PA(action):
     print("PA: " + action.type.name, file=sys.stderr, flush=True, end='')
-    if (action.origin_cell_id != None):
+    if (action.origin_cell_id is not None):
         print(' ' + str(action.origin_cell_id), file=sys.stderr, flush=True, end='')
-    if (action.target_cell_id != None):
+    if (action.target_cell_id is not None):
         print(' ' + str(action.target_cell_id), file=sys.stderr, flush=True, end='')
     print('', file=sys.stderr, flush=True,)
 
@@ -177,7 +177,7 @@ def apply_action(game, action, action_opp): # OK
         next_game.my_sun -= cost_grow[tree_to_grow.size] + len([tree for tree in game.get_trees_player() if tree.size == (tree_to_grow.size + 1)])
         tree_to_grow.size += 1
     elif action.type == ActionType.COMPLETE:
-        next_game.trees.reaction(game.get_tree_at_index(action.target_cell_id))
+        next_game.trees.remove(next_game.get_tree_at_index(action.target_cell_id))
         next_game.my_sun -= 4
         next_game.my_score += game.nutrients + (game.get_cell_at_index(action.target_cell_id).richness - 1) * 2
         next_game.nutrients -= 1
@@ -199,7 +199,7 @@ def all_seed_actions_from_tree(game, cell_index, depth, visited_cells_ids): # OK
     actions = []
     neighbors = game.get_cell_at_index(cell_index).neighbors
     for neighbor_id in neighbors:
-        if neighbor_id not in visited_cells_ids and game.get_cell_at_index(neighbor_id).richness > 0:
+        if neighbor_id not in visited_cells_ids and game.get_cell_at_index(neighbor_id).richness > 0 and game.get_tree_at_index(neighbor_id) is None:
             visited_cells_ids.append(neighbor_id)
             actions.append(Action(ActionType.SEED, neighbor_id, cell_index))
             if depth > 0:
@@ -267,12 +267,17 @@ def new_turn(game, new_day=False):
         game.day += 1
     return game
 
+def evalutation_score_position(game):
+    score = game.my_score - game.opponent_score
+    suns = (game.my_sun - game.opponent_score) / 3
+    return score + suns
+
 # if worse than options already explored --> do not explore
 def minimax(game, depth, alpha, beta, maximizingPlayer):
-    print_debug('\n')
+    # print_debug('\n')
+    print_debug("\ndepth: " + str(depth))
     if depth == 0 or game.day == 25: # or time is up
-        return (game.my_score - game.opponent_score, None) # static evaluation of game (todo: to enhance)
-    print_debug("depth: " + str(depth))
+        return (evalutation_score_position(game), None) # static evaluation of game (todo: to enhance)
     maxEval = -math.inf
     for action in find_all_possible_actions(game):
         # for action_opp in find_all_possible_actions(game, 0):
@@ -401,4 +406,4 @@ while True:
     # print_state_game(game)
 
     # print(game.compute_next_action())
-    print(minimax(game, 2, -math.inf, math.inf, True)[1])
+    print("ACTION: " + str(minimax(game, 8, -math.inf, math.inf, True)[1]))
