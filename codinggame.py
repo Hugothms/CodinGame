@@ -5,7 +5,7 @@ from enum import Enum
 import random
 
 circles=[range(0, 1), range(1, 7), range(7, 19), range(19, 37)]
-cost_grow=[1, 3, 7]
+costs_grow=[1, 3, 7]
 
 
 def print_debug(str, end='\n'):
@@ -161,11 +161,11 @@ def apply_actions(game, action, action_opp): # OK
         return next_game
     elif action.type == ActionType.SEED:
         if action_opp.type == ActionType.SEED and action.target_cell_id == action_opp.target_cell_id:
-            print_debug("you and opponenet tried to SEED on the same cell -> ABORT")
+            # print_debug("you and opponenet tried to SEED on the same cell -> ABORT")
             return next_game
         # print_debug("pos of seeds:")
         # for tree in [tree for tree in game.get_trees_player() if (tree.size == 0)]:
-        #     print_debug(tree.cell_index) # issue on calcul
+            print_debug(tree.cell_index) # issue on calcul
         # print_debug("cost of SEED: " + str(len([tree for tree in game.get_trees_player() if (tree.size == 0)])))
         next_game.my_sun -= len([tree for tree in game.get_trees_player() if (tree.size == 0)])
         next_game.trees.append(Tree(action.target_cell_id, 0, 1, 1))
@@ -173,16 +173,16 @@ def apply_actions(game, action, action_opp): # OK
         return next_game
     elif action.type == ActionType.GROW:
         tree_to_grow = next_game.get_tree_at_index(action.target_cell_id)
-        print_debug(cost_grow[tree_to_grow.size] + len([tree for tree in game.get_trees_player() if tree.size == (tree_to_grow.size + 1)]))
-        next_game.my_sun -= cost_grow[tree_to_grow.size] + len([tree for tree in game.get_trees_player() if tree.size == (tree_to_grow.size + 1)])
+        # print_debug(costs_grow[tree_to_grow.size] + len([tree for tree in game.get_trees_player() if tree.size == (tree_to_grow.size + 1)]))
+        next_game.my_sun -= costs_grow[tree_to_grow.size] + len([tree for tree in game.get_trees_player() if tree.size == (tree_to_grow.size + 1)])
         tree_to_grow.size += 1
     elif action.type == ActionType.COMPLETE:
         next_game.trees.remove(next_game.get_tree_at_index(action.target_cell_id))
         next_game.my_sun -= 4
         next_game.my_score += game.nutrients + (game.get_cell_at_index(action.target_cell_id).richness - 1) * 2
         next_game.nutrients -= 1
-    else:
-        print_debug("error action invalid")
+    # else:
+        # print_debug("error action invalid")
     return next_game
 
 """
@@ -213,7 +213,7 @@ def find_all_possible_actions(game, player=1): # OK
         if not tree.is_dormant:
             if game.my_sun >= 4 and tree.size == 3:
                 actions.append(Action(ActionType.COMPLETE, tree.cell_index))
-            elif tree.size < 3 and game.my_sun >= cost_grow[tree.size] + len([trees for trees in my_trees if trees.size == tree.size]):
+            elif tree.size < 3 and game.my_sun >= costs_grow[tree.size] + len([trees for trees in my_trees if trees.size == tree.size]):
                 actions.append(Action(ActionType.GROW, tree.cell_index))
             if (tree.size > 0) and game.my_sun >= len(game.get_seeds_player()):
                 visited_cells_ids = [-1, tree.cell_index]
@@ -221,9 +221,60 @@ def find_all_possible_actions(game, player=1): # OK
     # print_debug("***********ACTIONS:***********")
     # actions.sort(key=sort_actions)
     # for action in actions:
-    #     print_debug(action)
+        # print_debug(action)
     # print_debug("**************")
     return actions # to try best cadidate first (like COMPLETE action before others)
+
+def interesting_seed_actions_from_tree(game, cell_index, depth, visited_cells_ids): # OK
+    actions = []
+    neighbors = game.get_cell_at_index(cell_index).neighbors
+    for neighbor_id in neighbors:
+        if neighbor_id not in visited_cells_ids and game.get_cell_at_index(neighbor_id).richness > 0 and game.get_tree_at_index(neighbor_id) is None:
+            visited_cells_ids.append(neighbor_id)
+            actions.append(Action(ActionType.SEED, neighbor_id, cell_index))
+            if depth > 0:
+                actions.extend(all_seed_actions_from_tree(game, cell_index, depth - 1, visited_cells_ids))
+    return actions
+
+def find_interesting_actions(game, player=1):
+    actions = [Action(ActionType.WAIT)]
+    my_trees = game.get_trees_player()
+    nb_seeds = len(game.get_seeds_player())
+    for tree in my_trees:
+        if not tree.is_dormant:
+            if tree.size == 3:
+                if game.my_sun >= 4:
+                    actions.append(Action(ActionType.COMPLETE, tree.cell_index))
+            elif game.my_sun >= costs_grow[tree.size] + len([trees for trees in my_trees if trees.size == tree.size]):
+                actions.append(Action(ActionType.GROW, tree.cell_index))
+            if tree.size > 1 and game.my_sun >= nb_seeds:
+                visited_cells_ids = [-1, tree.cell_index]
+                actions.extend(interesting_seed_actions_from_tree(game, tree.cell_index, tree.size, visited_cells_ids))
+    # print_debug("***********ACTIONS:***********")
+    # actions.sort(key=sort_actions)
+    # for action in actions:
+        # print_debug(action)
+    # print_debug("**************")
+    return actions # to try best cadidate first (like COMPLETE action before others)
+
+# def filter_action(game, action):
+#     # return True
+#     if action.type == ActionType.WAIT:
+#         return True
+#     elif action.type == ActionType.SEED:
+#         return action.target_cell_id not in game.get_cell_at_index(action.target_cell_id).neighbors
+#     elif action.type == ActionType.GROW:
+#         return True
+#     elif action.type == ActionType.COMPLETE:
+#         return True
+#     return False
+
+# def filter_actions(game, actions):
+#     filtered = []
+#     for action in actions:
+#         if filter_action(game, action):
+#             filtered.append(action)
+#     return filtered
 
 def get_initial_sun_exposed_cells(day):
     sun_exposed_cells = []
@@ -271,8 +322,8 @@ def new_turn(game, new_day=False):
     return game
 
 def evalutation_score_position(game):
-    score = game.my_score - game.opponent_score
-    suns = (game.my_sun - game.opponent_score) / 3
+    score = (game.my_score - game.opponent_score) * 3
+    suns = (game.my_sun - game.opponent_score)
     return score + suns
 
 # if worse than options already explored --> do not explore
@@ -281,13 +332,13 @@ def minimax(game, depth, best_actions=[]):
     # print_debug("depth: " + str(depth))
     if depth == 0 or game.day == 25: # or time is up
         eval = evalutation_score_position(game)
-        print_debug("eval: " + str(eval) + '\n')
+        # print_debug("eval: " + str(eval) + '\n')
         return (eval, None, []) # static evaluation of game (todo: to enhance)
     max_eval = -math.inf
-    for action in find_all_possible_actions(game):
+    for action in find_interesting_actions(game):
         # for action_opp in find_all_possible_actions(game, 0):
         action_opp = Action(ActionType.WAIT)
-        print_debug("Turn actions: " + str(action) + ' /// ' + str(action_opp))
+        # print_debug("Turn actions: " + str(action) + ' /// ' + str(action_opp))
         next_game = apply_actions(game, action, action_opp)
         next_game = new_turn(next_game, action.type == ActionType.WAIT and action_opp.type == ActionType.WAIT)
         res = minimax(next_game, depth - 1, best_actions)
@@ -303,13 +354,13 @@ def minimax(game, depth, best_actions=[]):
 
 # if worse than options already explored -> do not explore
 def minimax2(game, depth, alpha, beta, maximizingPlayer):
-    print_debug("depth: " + str(depth))
+    # print_debug("depth: " + str(depth))
     if depth == 0 or game.day == 25: # or time is up
         return (game.my_score - game.opponent_score, None) # static evaluation of game (todo: to enhance)
     if maximizingPlayer:
         max_eval = -math.inf
         for action in find_all_possible_actions(game):
-            print_debug(action)
+            # print_debug(action)
             action_opp = Action(ActionType.WAIT)
             child = apply_actions(game, action, action_opp)
             child = new_turn(child, action.type == ActionType.WAIT and action_opp.type == ActionType.WAIT)
@@ -403,8 +454,8 @@ while True:
     # print_state_game(game)
 
     # print(game.compute_next_action())
-    res = minimax(game, 5)
-    print_debug("ACTION: ", '')
+    res = minimax(game, 8)
+    # print_debug("ACTION: ", '')
     print(res[1])
     print_debug("::::::::::::::::")
     for action in res[2]:
