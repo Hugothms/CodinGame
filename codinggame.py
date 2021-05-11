@@ -1,15 +1,28 @@
 import sys
 import math
 import copy
+import time
 from enum import Enum
 import random
 
 circles=[range(0, 1), range(1, 7), range(7, 19), range(19, 37)]
+
 costs_grow=[1, 3, 7]
 
+def get_initial_sun_exposed_cells(day):
+    sun_exposed_cells = []
+    for num in range(6, 13):
+        sun_exposed_cells.append((num + 3 * day) % 18 + 19)
+    return sun_exposed_cells
 
 def print_debug(str, end='\n'):
     print(str, file=sys.stderr, flush=True, end=end)
+
+
+
+
+
+
 
 
 class Cell:
@@ -57,16 +70,16 @@ class Action:
         if split[0] == ActionType.COMPLETE.name:
             return Action(ActionType.COMPLETE, int(split[1]))
 
-def sort_actions(action):
-    return str(action)
+    def sort_actions(self):
+        return str(self)
 
-def print_PA(action):
-    print("PA: " + action.type.name, file=sys.stderr, flush=True, end='')
-    if (action.origin_cell_id is not None):
-        print(' ' + str(action.origin_cell_id), file=sys.stderr, flush=True, end='')
-    if (action.target_cell_id is not None):
-        print(' ' + str(action.target_cell_id), file=sys.stderr, flush=True, end='')
-    print('', file=sys.stderr, flush=True,)
+# def print_PA(action):
+#     print("PA: " + action.type.name, file=sys.stderr, flush=True, end='')
+#     if (action.origin_cell_id is not None):
+#         print(' ' + str(action.origin_cell_id), file=sys.stderr, flush=True, end='')
+#     if (action.target_cell_id is not None):
+#         print(' ' + str(action.target_cell_id), file=sys.stderr, flush=True, end='')
+#     print('', file=sys.stderr, flush=True,)
 
 
 class Game:
@@ -82,10 +95,7 @@ class Game:
         self.opponent_score = 0
         self.opponent_is_waiting = 0
 
-
-
     def number_tree_lvl(self, lvl, player=1):
-        #return [trees for trees in self.threes if trees.is_mine == 1]
         cpt = 0
         for tree in self.trees:
             if (tree.is_mine == player and tree.size == lvl):
@@ -107,6 +117,193 @@ class Game:
         for cell in self.board:
             if cell.cell_index == index:
                 return cell
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    ### SIMULATION ###
+
+    def apply_actions(self, action, action_opp): # OK
+        game = copy.deepcopy(self)
+        if action.type == ActionType.WAIT:
+            return game
+        elif action.type == ActionType.SEED:
+            if action_opp.type == ActionType.SEED and action.target_cell_id == action_opp.target_cell_id:
+                # print_debug("you and opponenet tried to SEED on the same cell -> ABORT")
+                return game
+            # print_debug("pos of seeds:")
+            # for tree in [tree for tree in game.get_trees_player() if (tree.size == 0)]:
+                print_debug(tree.cell_index) # issue on calcul
+            # print_debug("cost of SEED: " + str(len([tree for tree in game.get_trees_player() if (tree.size == 0)])))
+            game.my_sun -= len([tree for tree in game.get_trees_player() if (tree.size == 0)])
+            game.trees.append(Tree(action.target_cell_id, 0, 1, 1))
+            game.get_tree_at_index(action.origin_cell_id).is_dormant = True
+            return game
+        elif action.type == ActionType.GROW:
+            tree_to_grow = game.get_tree_at_index(action.target_cell_id)
+            # print_debug(costs_grow[tree_to_grow.size] + len([tree for tree in game.get_trees_player() if tree.size == (tree_to_grow.size + 1)]))
+            game.my_sun -= costs_grow[tree_to_grow.size] + len([tree for tree in game.get_trees_player() if tree.size == (tree_to_grow.size + 1)])
+            tree_to_grow.size += 1
+        elif action.type == ActionType.COMPLETE:
+            game.trees.remove(game.get_tree_at_index(action.target_cell_id))
+            game.my_sun -= 4
+            game.my_score += game.nutrients + (game.get_cell_at_index(action.target_cell_id).richness - 1) * 2
+            game.nutrients -= 1
+        # else:
+            # print_debug("error action invalid")
+        return game
+
+
+
+    # should be replaced to find only interesting seed actions (with position_is_optimal)
+    def all_seed_actions_from_tree(self, cell_index, depth, visited_cells_ids): # OK
+        actions = []
+        neighbors = self.get_cell_at_index(cell_index).neighbors
+        for neighbor_id in neighbors:
+            if neighbor_id not in visited_cells_ids and self.get_cell_at_index(neighbor_id).richness > 0 and self.get_tree_at_index(neighbor_id) is None:
+                visited_cells_ids.append(neighbor_id)
+                actions.append(Action(ActionType.SEED, neighbor_id, cell_index))
+                if depth > 0:
+                    actions.extend(self.all_seed_actions_from_tree(cell_index, depth - 1, visited_cells_ids))
+        return actions
+
+    def find_all_possible_actions(self, player=1): # OK
+        actions = [Action(ActionType.WAIT)]
+        my_trees = self.get_trees_player()
+        for tree in my_trees:
+            if not tree.is_dormant:
+                if self.my_sun >= 4 and tree.size == 3:
+                    actions.append(Action(ActionType.COMPLETE, tree.cell_index))
+                elif tree.size < 3 and self.my_sun >= costs_grow[tree.size] + len([trees for trees in my_trees if trees.size == tree.size]):
+                    actions.append(Action(ActionType.GROW, tree.cell_index))
+                if (tree.size > 0) and self.my_sun >= len(self.get_seeds_player()):
+                    visited_cells_ids = [-1, tree.cell_index]
+                    actions.extend(self.all_seed_actions_from_tree(tree.cell_index, tree.size, visited_cells_ids))
+        # print_debug("***********ACTIONS:***********")
+        # actions.sort(key=sort_actions)
+        # for action in actions:
+            # print_debug(action)
+        # print_debug("**************")
+        return actions # to try best cadidate first (like COMPLETE action before others)
+
+    def position_is_optimal(self, action):
+        cell_action = self.get_cell_at_index(action.target_cell_id)
+        for neighbor in cell_action.neighbors:
+            if neighbor != -1 and self.get_cell_at_index(neighbor).neighbors[(i + 1) % 5] != -1:
+                if self.get_cell_at_index(neighbor).neighbors[(i + 1) % 5] == action.target_cell_id:
+                    return True;
+        return False;
+
+    def interesting_seed_actions_from_tree(self, cell_index, depth, visited_cells_ids): # OK
+        actions = []
+        neighbors = self.get_cell_at_index(cell_index).neighbors
+        for neighbor_id in neighbors:
+            if neighbor_id not in visited_cells_ids and self.get_cell_at_index(neighbor_id).richness > 0 and self.get_tree_at_index(neighbor_id) is None:
+                visited_cells_ids.append(neighbor_id)
+                seed_action = Action(ActionType.SEED, neighbor_id, cell_index)
+                if self.position_is_optimal(seed_action):
+                    actions.append(seed_action)
+                if depth > 0:
+                    actions.extend(self.interesting_seed_actions_from_tree(cell_index, depth - 1, visited_cells_ids))
+        return actions
+
+    def find_interesting_actions(self, player=1):
+        actions = [Action(ActionType.WAIT)]
+        my_trees = self.get_trees_player()
+        nb_seeds = len(self.get_seeds_player())
+        for tree in my_trees:
+            if not tree.is_dormant:
+                if tree.size == 3:
+                    if self.my_sun >= 4:
+                        actions.append(Action(ActionType.COMPLETE, tree.cell_index))
+                elif self.my_sun >= costs_grow[tree.size] + len([trees for trees in my_trees if trees.size == tree.size]):
+                    actions.append(Action(ActionType.GROW, tree.cell_index))
+                if tree.size > 1 and self.my_sun >= nb_seeds:
+                    visited_cells_ids = [-1, tree.cell_index]
+                    actions.extend(self.interesting_seed_actions_from_tree(tree.cell_index, tree.size, visited_cells_ids))
+                    # actions.extend(self.all_seed_actions_from_tree(tree.cell_index, tree.size, visited_cells_ids))
+        # print_debug("***********ACTIONS:***********")
+        # actions.sort(key=sort_actions)
+        # for action in actions:
+        #     print_debug(action)
+        return actions # to try best cadidate first (like COMPLETE action before others)
+
+    # def filter_action(self, action):
+    #     # return True
+    #     if action.type == ActionType.WAIT:
+    #         return True
+    #     elif action.type == ActionType.SEED:
+    #         return action.target_cell_id not in self.get_cell_at_index(action.target_cell_id).neighbors
+    #     elif action.type == ActionType.GROW:
+    #         return True
+    #     elif action.type == ActionType.COMPLETE:
+    #         return True
+    #     return False
+
+    # def filter_actions(self, actions):
+    #     filtered = []
+    #     for action in actions:
+    #         if filter_action(self, action):
+    #             filtered.append(action)
+    #     return filtered
+
+    def sun_in_row(self, sun_exposed_cell, shadow_range, shadow_size_tree):
+        # print_debug("start sun_in_row: " + str(sun_exposed_cell) + '\t' + str(shadow_range))
+        if sun_exposed_cell == -1:
+            return (0, 0)
+        my_sun = 0
+        opponent_sun = 0
+        tree = self.get_tree_at_index(sun_exposed_cell)
+        if tree is not None:
+            # print_debug('tree')
+            if shadow_range == 0 or tree.size > shadow_size_tree:
+                if tree.is_mine:
+                    my_sun += tree.size
+                else:
+                    opponent_sun += tree.size
+            shadow_size_tree = tree.size
+            shadow_range = max(tree.size + 1, shadow_range) #OK
+        suns = self.sun_in_row(self.get_cell_at_index(sun_exposed_cell).neighbors[day % 6], max(shadow_range - 1, 0), shadow_size_tree)
+        my_sun += suns[0]
+        opponent_sun += suns[1]
+        return (my_sun, opponent_sun)
+
+    def new_turn(self, new_day=False):
+        initial_sun_exposed_cells = get_initial_sun_exposed_cells(day)
+        for sun_exposed_cell in initial_sun_exposed_cells:
+            # print_debug("+++++++++++++++++++")
+            suns = self.sun_in_row(sun_exposed_cell, 0, 0)
+            self.my_sun += suns[0]
+            self.opponent_sun += suns[1]
+            # print_debug("MINE: " + str(suns[0]))
+            # print_debug("OPPO: " + str(suns[1]))
+        # print_debug("final my_sun: " + str(self.my_sun))
+        # print_debug("final opponent_sun: " + str(self.opponent_sun))
+        if new_day:
+            self.day += 1
+            for tree in self.trees:
+                if tree.is_dormant:
+                    tree.is_dormant = False
+        return self
+
+    def evalutation_score_position(self):
+        score = (self.my_score - self.opponent_score) * 3
+        suns = (self.my_sun - self.opponent_score)
+        return score + suns
+
+
+
 
 
 
@@ -172,251 +369,205 @@ class Game:
 
 
 
-### SIMULATION ###
-
-def apply_actions(game, action, action_opp): # OK
-    next_game = copy.deepcopy(game)
-    if action.type == ActionType.WAIT:
-        return next_game
-    elif action.type == ActionType.SEED:
-        if action_opp.type == ActionType.SEED and action.target_cell_id == action_opp.target_cell_id:
-            # print_debug("you and opponenet tried to SEED on the same cell -> ABORT")
-            return next_game
-        # print_debug("pos of seeds:")
-        # for tree in [tree for tree in game.get_trees_player() if (tree.size == 0)]:
-            print_debug(tree.cell_index) # issue on calcul
-        # print_debug("cost of SEED: " + str(len([tree for tree in game.get_trees_player() if (tree.size == 0)])))
-        next_game.my_sun -= len([tree for tree in game.get_trees_player() if (tree.size == 0)])
-        next_game.trees.append(Tree(action.target_cell_id, 0, 1, 1))
-        next_game.get_tree_at_index(action.origin_cell_id).is_dormant = True
-        return next_game
-    elif action.type == ActionType.GROW:
-        tree_to_grow = next_game.get_tree_at_index(action.target_cell_id)
-        # print_debug(costs_grow[tree_to_grow.size] + len([tree for tree in game.get_trees_player() if tree.size == (tree_to_grow.size + 1)]))
-        next_game.my_sun -= costs_grow[tree_to_grow.size] + len([tree for tree in game.get_trees_player() if tree.size == (tree_to_grow.size + 1)])
-        tree_to_grow.size += 1
-    elif action.type == ActionType.COMPLETE:
-        next_game.trees.remove(next_game.get_tree_at_index(action.target_cell_id))
-        next_game.my_sun -= 4
-        next_game.my_score += game.nutrients + (game.get_cell_at_index(action.target_cell_id).richness - 1) * 2
-        next_game.nutrients -= 1
-    # else:
-        # print_debug("error action invalid")
-    return next_game
 
 
+def ucb_score(parent, child):
+    """
+    The score for an action that would transition between the parent and child.
+    """
+    prior_score = child.prior * math.sqrt(parent.visit_count) / (child.visit_count + 1)
+    if child.visit_count > 0:
+        # The value of the child is from the perspective of the opposing player
+        value_score = -child.value()
+    else:
+        value_score = 0
 
-# should be replaced to find only interesting seed actions (with position_is_optimal)
-def all_seed_actions_from_tree(game, cell_index, depth, visited_cells_ids): # OK
-    actions = []
-    neighbors = game.get_cell_at_index(cell_index).neighbors
-    for neighbor_id in neighbors:
-        if neighbor_id not in visited_cells_ids and game.get_cell_at_index(neighbor_id).richness > 0 and game.get_tree_at_index(neighbor_id) is None:
-            visited_cells_ids.append(neighbor_id)
-            actions.append(Action(ActionType.SEED, neighbor_id, cell_index))
-            if depth > 0:
-                actions.extend(all_seed_actions_from_tree(game, cell_index, depth - 1, visited_cells_ids))
-    return actions
+    return value_score + prior_score
 
-def find_all_possible_actions(game, player=1): # OK
-    actions = [Action(ActionType.WAIT)]
-    my_trees = game.get_trees_player()
-    for tree in my_trees:
-        if not tree.is_dormant:
-            if game.my_sun >= 4 and tree.size == 3:
-                actions.append(Action(ActionType.COMPLETE, tree.cell_index))
-            elif tree.size < 3 and game.my_sun >= costs_grow[tree.size] + len([trees for trees in my_trees if trees.size == tree.size]):
-                actions.append(Action(ActionType.GROW, tree.cell_index))
-            if (tree.size > 0) and game.my_sun >= len(game.get_seeds_player()):
-                visited_cells_ids = [-1, tree.cell_index]
-                actions.extend(all_seed_actions_from_tree(game, tree.cell_index, tree.size, visited_cells_ids))
-    # print_debug("***********ACTIONS:***********")
-    # actions.sort(key=sort_actions)
-    # for action in actions:
-        # print_debug(action)
-    # print_debug("**************")
-    return actions # to try best cadidate first (like COMPLETE action before others)
 
-def position_is_optimal(game, action):
-    cell_action = game.get_cell_at_index(action.target_cell_id)
-    for neighbor in cell_action.neighbors:
-        if neighbor != -1 and game.get_cell_at_index(neighbor).neighbors[(i + 1) % 5] != -1:
-            if game.get_cell_at_index(neighbor).neighbors[(i + 1) % 5] == action.target_cell_id:
-                return True;
-    return False;
+class Node:
+    def __init__(self, prior, to_play):
+        self.visit_count = 0
+        self.to_play = to_play
+        self.prior = prior
+        self.value_sum = 0
+        self.children = {}
+        self.state = None
 
-def interesting_seed_actions_from_tree(game, cell_index, depth, visited_cells_ids): # OK
-    actions = []
-    neighbors = game.get_cell_at_index(cell_index).neighbors
-    for neighbor_id in neighbors:
-        if neighbor_id not in visited_cells_ids and game.get_cell_at_index(neighbor_id).richness > 0 and game.get_tree_at_index(neighbor_id) is None:
-            visited_cells_ids.append(neighbor_id)
-            seed_action = Action(ActionType.SEED, neighbor_id, cell_index)
-            if position_is_optimal(game, seed_action):
-                actions.append(seed_action)
-            if depth > 0:
-                actions.extend(interesting_seed_actions_from_tree(game, cell_index, depth - 1, visited_cells_ids))
-    return actions
+    def expanded(self):
+        return len(self.children) > 0
 
-def find_interesting_actions(game, player=1):
-    actions = [Action(ActionType.WAIT)]
-    my_trees = game.get_trees_player()
-    nb_seeds = len(game.get_seeds_player())
-    for tree in my_trees:
-        if not tree.is_dormant:
-            if tree.size == 3:
-                if game.my_sun >= 4:
-                    actions.append(Action(ActionType.COMPLETE, tree.cell_index))
-            elif game.my_sun >= costs_grow[tree.size] + len([trees for trees in my_trees if trees.size == tree.size]):
-                actions.append(Action(ActionType.GROW, tree.cell_index))
-            if tree.size > 1 and game.my_sun >= nb_seeds:
-                visited_cells_ids = [-1, tree.cell_index]
-                actions.extend(interesting_seed_actions_from_tree(game, tree.cell_index, tree.size, visited_cells_ids))
-                # actions.extend(all_seed_actions_from_tree(game, tree.cell_index, tree.size, visited_cells_ids))
-    # print_debug("***********ACTIONS:***********")
-    # actions.sort(key=sort_actions)
-    # for action in actions:
-    #     print_debug(action)
-    return actions # to try best cadidate first (like COMPLETE action before others)
+    def value(self):
+        if self.visit_count == 0:
+            return 0
+        return self.value_sum / self.visit_count
 
-# def filter_action(game, action):
-#     # return True
-#     if action.type == ActionType.WAIT:
-#         return True
-#     elif action.type == ActionType.SEED:
-#         return action.target_cell_id not in game.get_cell_at_index(action.target_cell_id).neighbors
-#     elif action.type == ActionType.GROW:
-#         return True
-#     elif action.type == ActionType.COMPLETE:
-#         return True
-#     return False
+    def select_action(self, temperature):
+        """
+        Select action according to the visit count distribution and the temperature.
+        """
+        visit_counts = np.array([child.visit_count for child in self.children.values()])
+        actions = [action for action in self.children.keys()]
+        if temperature == 0:
+            action = actions[np.argmax(visit_counts)]
+        elif temperature == float("inf"):
+            action = np.random.choice(actions)
+        else:
+            # See paper appendix Data Generation
+            visit_count_distribution = visit_counts ** (1 / temperature)
+            visit_count_distribution = visit_count_distribution / sum(visit_count_distribution)
+            action = np.random.choice(actions, p=visit_count_distribution)
 
-# def filter_actions(game, actions):
-#     filtered = []
-#     for action in actions:
-#         if filter_action(game, action):
-#             filtered.append(action)
-#     return filtered
+        return action
 
-def get_initial_sun_exposed_cells(day):
-    sun_exposed_cells = []
-    for num in range(6, 13):
-        sun_exposed_cells.append((num + 3 * day) % 18 + 19)
-    return sun_exposed_cells
+    def select_child(self):
+        """
+        Select the child with the highest UCB score.
+        """
+        best_score = -np.inf
+        best_action = -1
+        best_child = None
 
-def sun_in_row(game, sun_exposed_cell, shadow_range, shadow_size_tree):
-    # print_debug("start sun_in_row: " + str(sun_exposed_cell) + '\t' + str(shadow_range))
-    if sun_exposed_cell == -1:
-        return (0, 0)
-    my_sun = 0
-    opponent_sun = 0
-    tree = game.get_tree_at_index(sun_exposed_cell)
-    if tree is not None:
-        # print_debug('tree')
-        if shadow_range == 0 or tree.size > shadow_size_tree:
-            if tree.is_mine:
-                my_sun += tree.size
-            else:
-                opponent_sun += tree.size
-        shadow_size_tree = tree.size
-        shadow_range = max(tree.size + 1, shadow_range) #OK
-    suns = sun_in_row(game, game.get_cell_at_index(sun_exposed_cell).neighbors[day % 6], max(shadow_range - 1, 0), shadow_size_tree)
-    my_sun += suns[0]
-    opponent_sun += suns[1]
-    return (my_sun, opponent_sun)
+        for action, child in self.children.items():
+            score = ucb_score(self, child)
+            if score > best_score:
+                best_score = score
+                best_action = action
+                best_child = child
 
-def new_turn(game, new_day=False):
-    initial_sun_exposed_cells = get_initial_sun_exposed_cells(game.day)
-    for sun_exposed_cell in initial_sun_exposed_cells:
-        # print_debug("+++++++++++++++++++")
-        suns = sun_in_row(game, sun_exposed_cell, 0, 0)
-        game.my_sun += suns[0]
-        game.opponent_sun += suns[1]
-        # print_debug("MINE: " + str(suns[0]))
-        # print_debug("OPPO: " + str(suns[1]))
-    # print_debug("final my_sun: " + str(game.my_sun))
-    # print_debug("final opponent_sun: " + str(game.opponent_sun))
-    if new_day:
-        game.day += 1
-        for tree in game.trees:
-            if tree.is_dormant:
-                tree.is_dormant = False
-    return game
+        return best_action, best_child
 
-def evalutation_score_position(game):
-    score = (game.my_score - game.opponent_score) * 3
-    suns = (game.my_sun - game.opponent_score)
-    return score + suns
+    def expand(self, state, to_play, action_probs):
+        """
+        We expand a node and keep track of the prior policy probability given by neural network
+        """
+        self.to_play = to_play
+        self.state = state
+        for a, prob in enumerate(action_probs):
+            if prob != 0:
+                self.children[a] = Node(prior=prob, to_play=self.to_play * -1)
+
+    def __repr__(self):
+        """
+        Debugger pretty print node info
+        """
+        prior = "{0:.2f}".format(self.prior)
+        return "{} Prior: {} Count: {} Value: {}".format(self.state.__str__(), prior, self.visit_count, self.value())
+
+
+class MCTS:
+
+    def __init__(self, game, model, args):
+        self.game = game
+        self.model = model
+        self.args = args
+
+    def run(self, model, state, to_play):
+
+        root = Node(0, to_play)
+
+        # EXPAND root
+        action_probs, value = model.predict(state)
+        valid_moves = self.game.get_valid_moves(state)
+        action_probs = action_probs * valid_moves  # mask invalid moves
+        action_probs /= np.sum(action_probs)
+        root.expand(state, to_play, action_probs)
+
+        for _ in range(self.args['num_simulations']):
+            node = root
+            search_path = [node]
+
+            # SELECT
+            while node.expanded():
+                action, node = node.select_child()
+                search_path.append(node)
+
+            parent = search_path[-2]
+            state = parent.state
+            # Now we're at a leaf node and we would like to expand
+            # Players always play from their own perspective
+            next_state, _ = self.game.get_next_state(state, player=1, action=action)
+            # Get the board from the perspective of the other player
+            next_state = self.game.get_canonical_board(next_state, player=-1)
+
+            # The value of the new state from the perspective of the other player
+            value = self.game.get_reward_for_player(next_state, player=1)
+            if value is None:
+                # If the game has not ended:
+                # EXPAND
+                action_probs, value = model.predict(next_state)
+                valid_moves = self.game.get_valid_moves(next_state)
+                action_probs = action_probs * valid_moves  # mask invalid moves
+                action_probs /= np.sum(action_probs)
+                node.expand(next_state, parent.to_play * -1, action_probs)
+
+            self.backpropagate(search_path, value, parent.to_play * -1)
+
+        return root
+
+    def backpropagate(self, search_path, value, to_play):
+        """
+        At the end of a simulation, we propagate the evaluation all the way up the tree
+        to the root.
+        """
+        for node in reversed(search_path):
+            node.value_sum += value if node.to_play == to_play else -value
+            node.visit_count += 1
 
 
 
 
 
+# class Node:
+#     def __init__(self, win=0, nb_visit=0):
+#         self.win = win
+#         self.nb_visit = nb_visit
+
+# # main function for the Monte Carlo Tree Search
+# def monte_carlo_tree_search(game, t0):
+#     node = Node()
+#     while time.time() - t0 < 90:
+#         leaf = traverse(game)
+#         simulation_result = rollout(leaf)
+#         backpropagate(leaf, simulation_result)
+#     return best_child(game)
+
+# def best_uct(node):
+#     return node.win / node.nb_visit + 2 * math.sqrt(math.log(pere_expl) / node.nb_visit)
+
+# # function for node traversal
+# def traverse(game, node):
+#     for action in find_all_possible_actions(game):
+#         node = Node()
+#         game = best_uct(game)
+#     # in case no children are present / node is terminal
+#     return pick_univisted(node.children) or node
 
 
+# # function for the result of the simulation
+# def rollout(node):
+#     while non_terminal(node):
+#         node = rollout_policy(node)
+#     return result(node)
 
 
+# # function for randomly selecting a child node
+# def rollout_policy(node):
+#     return pick_random(node.children)
 
 
+# # function for backpropagation
+# def backpropagate(node, result):
+#     if is_root(node):
+#         return
+#     node.stats = update_stats(node, result)
+#     backpropagate(node.parent)
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# main function for the Monte Carlo Tree Search
-def monte_carlo_tree_search(root, t0):
-    while time.time() - t0 < 90:
-        leaf = traverse(root)
-        simulation_result = rollout(leaf)
-        backpropagate(leaf, simulation_result)
-    return best_child(root)
-
-
-# function for node traversal
-def traverse(node):
-    while fully_expanded(node):
-        node = best_uct(node)
-    # in case no children are present / node is terminal
-    return pick_univisted(node.children) or node
-
-
-# function for the result of the simulation
-def rollout(node):
-    while non_terminal(node):
-        node = rollout_policy(node)
-    return result(node)
-
-
-# function for randomly selecting a child node
-def rollout_policy(node):
-    return pick_random(node.children)
-
-
-# function for backpropagation
-def backpropagate(node, result):
-    if is_root(node):
-        return
-    node.stats = update_stats(node, result)
-    backpropagate(node.parent)
-
-
-# function for selecting the best child
-# node with highest number of visits
-def best_child(node):
-    pick child with highest number of visits
+# # function for selecting the best child
+# # node with highest number of visits
+# def best_child(node):
+#     pick child with highest number of visits
 
 
 
@@ -445,16 +596,16 @@ def minimax(game, depth, best_actions=[]):
     # print_debug('\n')
     # print_debug("depth: " + str(depth))
     if depth == 0 or game.day == 25: # or time is up
-        eval = evalutation_score_position(game)
+        eval = game.evalutation_score_position()
         # print_debug("eval: " + str(eval) + '\n')
         return (eval, None, []) # static evaluation of game (todo: to enhance)
     max_eval = -math.inf
-    for action in find_interesting_actions(game):
+    for action in game.find_interesting_actions():
         # for action_opp in find_all_possible_actions(game, 0):
         action_opp = Action(ActionType.WAIT)
         # print_debug("Turn actions: " + str(action) + ' /// ' + str(action_opp))
-        next_game = apply_actions(game, action, action_opp)
-        next_game = new_turn(next_game, action.type == ActionType.WAIT and action_opp.type == ActionType.WAIT)
+        next_game = game.apply_actions(action, action_opp)
+        next_game = next_game.new_turn(action.type == ActionType.WAIT and action_opp.type == ActionType.WAIT)
         res = minimax(next_game, depth - 1, best_actions)
         eval = res[0]
         if eval > max_eval:
