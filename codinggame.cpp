@@ -2,8 +2,41 @@
 #include <string>
 #include <vector>
 #include <algorithm>
+#include <tuple>
 
 using namespace std;
+
+class Cell {
+public:
+    Cell () {
+        neighbors.resize(6);
+    }
+
+    void input() {
+        cin >> cell_index >> richness;
+        for (auto& n: neighbors) {
+            cin >> n;
+        }
+    }
+    int cell_index;
+    int richness;
+    vector<int> neighbors;
+};
+
+class Tree {
+public:
+    Tree () = default;
+    Tree (int cell_index, int size, bool is_mine, bool is_dormant) :
+        cell_index{cell_index}, size{size}, is_mine{is_mine}, is_dormant{is_dormant} {}
+    void input() {
+        cin >> cell_index >> size >> is_mine >> is_dormant;
+    }
+    int cell_index;
+    int size;
+    bool is_mine;
+    bool is_dormant;
+};
+
 
 /*
 void	pass_day(State &state)
@@ -148,65 +181,91 @@ State   simulate_action(State& s, Action a)
 }
 */
 
-/**
- * Auto-generated code below aims at helping you parse
- * the standard input according to the problem statement.
- **/
+class Game {
+private:
+        int day = 0;
+        int nutrients = 0;
+        vector<Cell> board;
+        vector<Tree> trees;
+        vector<tuple<string,int,int>> possible_actions;
+        int mySun;
+        int oppSun;
+        int score;
+        int oppScore;
+        int oppIsWaiting;
+
+public:
+    void inputInitData() {
+        int numberOfCells;
+        cin >> numberOfCells;
+        for (int i = 0; i < numberOfCells; i++) {
+            Cell cell;
+            cell.input();
+            board.push_back(cell);
+        }
+    }
+
+    void inputInfo() {
+        // input game info
+        cin >> day;
+        cin >> nutrients;
+        cin >> mySun >> score;
+        cin >> oppSun >> oppScore >> oppIsWaiting;
+
+        // input trees info
+        trees.clear();
+        int numberOfTrees;
+        cin >> numberOfTrees;
+        for (int i = 0; i < numberOfTrees; i++) {
+            Tree tree;
+            tree.input();
+            trees.push_back(tree);
+        }
+
+        // input possible actions
+        possible_actions.clear();
+        int numberOfPossibleMoves;
+        cin >> numberOfPossibleMoves;
+        for (int i = 0; i < numberOfPossibleMoves; i++) {
+            string type;
+            int arg1 = 0;
+            int arg2 = 0;
+            cin >> type;
+
+            if (type == "WAIT") {
+                possible_actions.push_back(make_tuple(type, arg1,arg2));
+            } else if (type == "COMPLETE") {
+                cin >> arg1;
+                possible_actions.push_back(make_tuple(type, arg1,arg2));
+            }
+            else if (type == "GROW") {
+                cin >> arg1;
+                possible_actions.push_back(make_tuple(type, arg1,arg2));
+            }
+            else if (type == "SEED") {
+                cin >> arg1;
+                cin >> arg2;
+                possible_actions.push_back(make_tuple(type, arg1,arg2));
+            }
+        }
+    }
+
+    // TODO: Please implement the algorithm in this function
+    string compute_next_action() {
+        string action = "WAIT"; // default
+
+        return action;
+    }
+};
 
 int main()
 {
-    int numberOfCells; // 37
-    cin >> numberOfCells; cin.ignore();
-    for (int i = 0; i < numberOfCells; i++)
-	{
-        int index; // 0 is the center cell, the next cells spiral outwards
-        int richness; // 0 if the cell is unusable, 1-3 for usable cells
-        int neigh0; // the index of the neighbouring cell for each direction
-        int neigh1;
-        int neigh2;
-        int neigh3;
-        int neigh4;
-        int neigh5;
-        cin >> index >> richness >> neigh0 >> neigh1 >> neigh2 >> neigh3 >> neigh4 >> neigh5; cin.ignore();
-    }
+    Game game;
+    game.inputInitData();
 
-    // game loop
-    while (1)
-	{
-        int day; // the game lasts 24 days: 0-23
-        cin >> day; cin.ignore();
-        int nutrients; // the base score you gain from the next COMPLETE action
-        cin >> nutrients; cin.ignore();
-        int sun; // your sun points
-        int score; // your current score
-        cin >> sun >> score; cin.ignore();
-        int oppSun; // opponent's sun points
-        int oppScore; // opponent's score
-        bool oppIsWaiting; // whether your opponent is asleep until the next day
-        cin >> oppSun >> oppScore >> oppIsWaiting; cin.ignore();
-        int numberOfTrees; // the current amount of trees
-        cin >> numberOfTrees; cin.ignore();
-        for (int i = 0; i < numberOfTrees; i++)
-		{
-            int cellIndex; // location of this tree
-            int size; // size of this tree: 0-3
-            bool isMine; // 1 if this is your tree
-            bool isDormant; // 1 if this tree is dormant
-            cin >> cellIndex >> size >> isMine >> isDormant; cin.ignore();
-        }
-        int numberOfPossibleActions; // all legal actions
-        cin >> numberOfPossibleActions; cin.ignore();
-        for (int i = 0; i < numberOfPossibleActions; i++)
-		{
-            string possibleAction;
-            getline(cin, possibleAction); // try printing something from here to start with
-        }
+    while (true) {
+        game.inputInfo();
 
-        // Write an action using cout. DON'T FORGET THE "<< endl"
-        // To debug: cerr << "Debug messages..." << endl;
-
-
-        // GROW cellIdx | SEED sourceIdx targetIdx | COMPLETE cellIdx | WAIT <message>
-        cout << "WAIT" << endl;
+        cout << game.compute_next_action() << endl;
     }
 }
