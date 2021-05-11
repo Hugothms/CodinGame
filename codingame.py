@@ -178,14 +178,14 @@ class Game:
 
     def find_all_possible_actions(self, to_play=True): # OK
         actions = [Action(ActionType.WAIT)]
-        my_trees = self.get_trees_player()
-        for tree in my_trees:
+        player_trees = self.get_trees_player(to_play)
+        for tree in player_trees:
             if not tree.is_dormant:
                 if self.sun[to_play == True] >= 4 and tree.size == 3:
                     actions.append(Action(ActionType.COMPLETE, tree.cell_index))
-                elif tree.size < 3 and self.sun[to_play == True] >= costs_grow[tree.size] + len([trees for trees in my_trees if trees.size == tree.size]):
+                elif tree.size < 3 and self.sun[to_play == True] >= costs_grow[tree.size] + len([trees for trees in player_trees if trees.size == tree.size]):
                     actions.append(Action(ActionType.GROW, tree.cell_index))
-                if (tree.size > 0) and self.sun[to_play == True] >= len(self.get_seeds_player()):
+                if (tree.size > 0) and self.sun[to_play == True] >= len(self.get_seeds_player(to_play)):
                     visited_cells_ids = [-1, tree.cell_index]
                     actions.extend(self.all_seed_actions_from_tree(tree.cell_index, tree.size, visited_cells_ids))
         # print_debug("***********ACTIONS:***********")
@@ -218,16 +218,16 @@ class Game:
 
     def find_interesting_actions(self, to_play=True):
         actions = [Action(ActionType.WAIT)]
-        my_trees = self.get_trees_player(False)
-        nb_seeds = len(self.get_seeds_player(False))
-        for tree in my_trees:
+        player_trees = self.get_trees_player(to_play)
+        player_nb_seeds = len(self.get_seeds_player(to_play))
+        for tree in player_trees:
             if not tree.is_dormant:
                 if tree.size == 3:
                     if self.sun[to_play == True] >= 4:
                         actions.append(Action(ActionType.COMPLETE, tree.cell_index))
-                elif self.sun[to_play == True] >= costs_grow[tree.size] + len([trees for trees in my_trees if trees.size == tree.size]):
+                elif self.sun[to_play == True] >= costs_grow[tree.size] + len([trees for trees in player_trees if trees.size == tree.size]):
                     actions.append(Action(ActionType.GROW, tree.cell_index))
-                if tree.size > 1 and self.sun[to_play == True] >= nb_seeds:
+                if tree.size > 1 and self.sun[to_play == True] >= player_nb_seeds:
                     visited_cells_ids = [-1, tree.cell_index]
                     actions.extend(self.interesting_seed_actions_from_tree(tree.cell_index, tree.size, visited_cells_ids))
                     # actions.extend(self.all_seed_actions_from_tree(tree.cell_index, tree.size, visited_cells_ids))
@@ -295,8 +295,8 @@ class Game:
         return self
 
     def evalutation_score_position(self, to_play=True):
-        score = (self.score[1] - self.score[1]) * 3
-        suns = (self.sun[to_play == True] - self.score[1])
+        score = (self.score[to_play == True] - self.score[to_play == False]) * 3
+        suns = (self.sun[to_play == True] - self.score[to_play == False])
         return score + suns
 
     def compute_next_action(self):
@@ -592,8 +592,8 @@ def minimax(game, depth, best_actions=[]):
         # print_debug("eval: " + str(eval) + '\n')
         return (eval, None, []) # static evaluation of game (todo: to enhance)
     max_eval = -math.inf
-    for action in game.find_interesting_actions():
-        for action_opp in game.find_all_possible_actions(False):
+    for action in game.find_interesting_actions(True):
+        for action_opp in game.find_interesting_actions(False):
             # action_opp = Action(ActionType.WAIT)
             # print_debug("Turn actions: " + str(action) + ' /// ' + str(action_opp))
             next_game = copy.deepcopy(game)
@@ -735,7 +735,7 @@ while True:
         game.possible_actions.append(Action.parse(possible_action))
     # print_state_game(game)
     # print(game.compute_next_action())
-    res = minimax(game, 8)
+    res = minimax(game, 5)
     print(res[1])
     print_debug("::::::::::::::::")
     for action in res[2]:
