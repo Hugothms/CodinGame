@@ -8,8 +8,8 @@ circles=[range(0, 1), range(1, 7), range(7, 19), range(19, 37)]
 cost_grow=[1, 3, 7]
 
 
-def print_debug(str):
-    print(str, file=sys.stderr, flush=True)
+def print_debug(str, end='\n'):
+    print(str, file=sys.stderr, flush=True, end=end)
 
 
 class Cell:
@@ -155,7 +155,7 @@ class Game:
 
 ### MINIMAX ALGORITHM ###
 
-def apply_action(game, action, action_opp): # OK
+def apply_actions(game, action, action_opp): # OK
     next_game = copy.deepcopy(game)
     if action.type == ActionType.WAIT:
         return next_game
@@ -163,17 +163,17 @@ def apply_action(game, action, action_opp): # OK
         if action_opp.type == ActionType.SEED and action.target_cell_id == action_opp.target_cell_id:
             print_debug("you and opponenet tried to SEED on the same cell -> ABORT")
             return next_game
-        print_debug("pos of seeds:")
-        for tree in [tree for tree in game.get_trees_player() if (tree.size == 0)]:
-            print_debug(tree.cell_index) # issue on calcul
-        print_debug("cost of SEED: " + str(len([tree for tree in game.get_trees_player() if (tree.size == 0)])))
+        # print_debug("pos of seeds:")
+        # for tree in [tree for tree in game.get_trees_player() if (tree.size == 0)]:
+        #     print_debug(tree.cell_index) # issue on calcul
+        # print_debug("cost of SEED: " + str(len([tree for tree in game.get_trees_player() if (tree.size == 0)])))
         next_game.my_sun -= len([tree for tree in game.get_trees_player() if (tree.size == 0)])
         next_game.trees.append(Tree(action.target_cell_id, 0, 1, 1))
         next_game.get_tree_at_index(action.origin_cell_id).is_dormant = True
         return next_game
     elif action.type == ActionType.GROW:
-        tree_to_grow = game.get_tree_at_index(action.target_cell_id)
-        print_debug(tree_to_grow.size)
+        tree_to_grow = next_game.get_tree_at_index(action.target_cell_id)
+        print_debug(cost_grow[tree_to_grow.size] + len([tree for tree in game.get_trees_player() if tree.size == (tree_to_grow.size + 1)]))
         next_game.my_sun -= cost_grow[tree_to_grow.size] + len([tree for tree in game.get_trees_player() if tree.size == (tree_to_grow.size + 1)])
         tree_to_grow.size += 1
     elif action.type == ActionType.COMPLETE:
@@ -261,10 +261,13 @@ def new_turn(game, new_day=False):
         game.opponent_sun += suns[1]
         # print_debug("MINE: " + str(suns[0]))
         # print_debug("OPPO: " + str(suns[1]))
-    print_debug("final my_sun: " + str(game.my_sun))
-    print_debug("final opponent_sun: " + str(game.opponent_sun))
+    # print_debug("final my_sun: " + str(game.my_sun))
+    # print_debug("final opponent_sun: " + str(game.opponent_sun))
     if new_day:
         game.day += 1
+        for tree in game.trees:
+            if tree.is_dormant:
+                tree.is_dormant = False
     return game
 
 def evalutation_score_position(game):
@@ -273,35 +276,29 @@ def evalutation_score_position(game):
     return score + suns
 
 # if worse than options already explored --> do not explore
-def minimax(game, depth, alpha, beta, maximizingPlayer):
+def minimax(game, depth, best_actions=[]):
     # print_debug('\n')
-    print_debug("\ndepth: " + str(depth))
+    # print_debug("depth: " + str(depth))
     if depth == 0 or game.day == 25: # or time is up
-        return (evalutation_score_position(game), None) # static evaluation of game (todo: to enhance)
-    maxEval = -math.inf
+        eval = evalutation_score_position(game)
+        print_debug("eval: " + str(eval) + '\n')
+        return (eval, None, []) # static evaluation of game (todo: to enhance)
+    max_eval = -math.inf
     for action in find_all_possible_actions(game):
         # for action_opp in find_all_possible_actions(game, 0):
         action_opp = Action(ActionType.WAIT)
-        print_debug("actions: " + str(action) + '\t' + str(action_opp))
-        child = apply_action(game, action, action_opp)
-        child = new_turn(child, action.type == ActionType.WAIT and action_opp.type == ActionType.WAIT)
-        eval = minimax(child, depth - 1, alpha, beta, False)[0]
-        if eval > maxEval:
-            maxEval = eval
+        print_debug("Turn actions: " + str(action) + ' /// ' + str(action_opp))
+        next_game = apply_actions(game, action, action_opp)
+        next_game = new_turn(next_game, action.type == ActionType.WAIT and action_opp.type == ActionType.WAIT)
+        res = minimax(next_game, depth - 1, best_actions)
+        eval = res[0]
+        if eval > max_eval:
+            max_eval = eval
             best_action = action
-        alpha = max(alpha, eval)
-        if beta <= alpha:
-            break
-    return (maxEval, best_action)
-    # minEval = math.inf
-    # eval = minimax(child, depth - 1, alpha, beta, True)[0]
-    # if eval < minEval:
-    #     minEval = eval
-    #     best_action = action
-    # beta = min(beta, eval)
-    # if beta <= alpha:
-    #     break
-    # return (minEval, best_action)
+            best_actions = res[2]
+    best_actions.append(best_action)
+    return (max_eval, best_action, best_actions)
+
 
 
 # if worse than options already explored -> do not explore
@@ -310,25 +307,25 @@ def minimax2(game, depth, alpha, beta, maximizingPlayer):
     if depth == 0 or game.day == 25: # or time is up
         return (game.my_score - game.opponent_score, None) # static evaluation of game (todo: to enhance)
     if maximizingPlayer:
-        maxEval = -math.inf
+        max_eval = -math.inf
         for action in find_all_possible_actions(game):
             print_debug(action)
             action_opp = Action(ActionType.WAIT)
-            child = apply_action(game, action, action_opp)
+            child = apply_actions(game, action, action_opp)
             child = new_turn(child, action.type == ActionType.WAIT and action_opp.type == ActionType.WAIT)
             eval = minimax(child, depth - 1, alpha, beta, False)[0]
-            if eval > maxEval:
-                maxEval = eval
+            if eval > max_eval:
+                max_eval = eval
                 best_action = action
             alpha = max(alpha, eval)
             if beta <= alpha:
                 break
-        return (maxEval, best_action)
+        return (max_eval, best_action)
     else:
         minEval = math.inf
         for action in find_all_possible_actions(game):
             action_opp = Action(ActionType.WAIT)
-            child = apply_action(game, action, action_opp)
+            child = apply_actions(game, action, action_opp)
             eval = minimax(child, depth - 1, alpha, beta, True)[0]
             if eval < minEval:
                 minEval = eval
@@ -406,4 +403,9 @@ while True:
     # print_state_game(game)
 
     # print(game.compute_next_action())
-    print("ACTION: " + str(minimax(game, 8, -math.inf, math.inf, True)[1]))
+    res = minimax(game, 5)
+    print_debug("ACTION: ", '')
+    print(res[1])
+    print_debug("::::::::::::::::")
+    for action in res[2]:
+        print_debug(action)
