@@ -153,7 +153,26 @@ class Game:
 
 
 
-### MINIMAX ALGORITHM ###
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+### SIMULATION ###
 
 def apply_actions(game, action, action_opp): # OK
     next_game = copy.deepcopy(game)
@@ -185,14 +204,7 @@ def apply_actions(game, action, action_opp): # OK
         # print_debug("error action invalid")
     return next_game
 
-"""
-def position_is_optimal(Move &move):
-    for (int i = 0; i < 6; i++)
-        if (game.cells[move.cell_index].neighbours[i] != -1 && game.cells[game.cells[move.cell_index].neighbours[i]].neighbours[(i + 1) % 5] != -1)
-            if (game.cells[game.cells[move.cell_index].neighbours[i]].neighbours[(i + 1) % 5] == move.target_index)
-                return True;
-    return False;
-"""
+
 
 # should be replaced to find only interesting seed actions (with position_is_optimal)
 def all_seed_actions_from_tree(game, cell_index, depth, visited_cells_ids): # OK
@@ -225,15 +237,25 @@ def find_all_possible_actions(game, player=1): # OK
     # print_debug("**************")
     return actions # to try best cadidate first (like COMPLETE action before others)
 
+def position_is_optimal(game, action):
+    cell_action = game.get_cell_at_index(action.target_cell_id)
+    for neighbor in cell_action.neighbors:
+        if neighbor != -1 and game.get_cell_at_index(neighbor).neighbors[(i + 1) % 5] != -1:
+            if game.get_cell_at_index(neighbor).neighbors[(i + 1) % 5] == action.target_cell_id:
+                return True;
+    return False;
+
 def interesting_seed_actions_from_tree(game, cell_index, depth, visited_cells_ids): # OK
     actions = []
     neighbors = game.get_cell_at_index(cell_index).neighbors
     for neighbor_id in neighbors:
         if neighbor_id not in visited_cells_ids and game.get_cell_at_index(neighbor_id).richness > 0 and game.get_tree_at_index(neighbor_id) is None:
             visited_cells_ids.append(neighbor_id)
-            actions.append(Action(ActionType.SEED, neighbor_id, cell_index))
+            seed_action = Action(ActionType.SEED, neighbor_id, cell_index)
+            if position_is_optimal(game, seed_action):
+                actions.append(seed_action)
             if depth > 0:
-                actions.extend(all_seed_actions_from_tree(game, cell_index, depth - 1, visited_cells_ids))
+                actions.extend(interesting_seed_actions_from_tree(game, cell_index, depth - 1, visited_cells_ids))
     return actions
 
 def find_interesting_actions(game, player=1):
@@ -250,11 +272,11 @@ def find_interesting_actions(game, player=1):
             if tree.size > 1 and game.my_sun >= nb_seeds:
                 visited_cells_ids = [-1, tree.cell_index]
                 actions.extend(interesting_seed_actions_from_tree(game, tree.cell_index, tree.size, visited_cells_ids))
+                # actions.extend(all_seed_actions_from_tree(game, tree.cell_index, tree.size, visited_cells_ids))
     # print_debug("***********ACTIONS:***********")
     # actions.sort(key=sort_actions)
     # for action in actions:
-        # print_debug(action)
-    # print_debug("**************")
+    #     print_debug(action)
     return actions # to try best cadidate first (like COMPLETE action before others)
 
 # def filter_action(game, action):
@@ -326,6 +348,98 @@ def evalutation_score_position(game):
     suns = (game.my_sun - game.opponent_score)
     return score + suns
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# main function for the Monte Carlo Tree Search
+def monte_carlo_tree_search(root, t0):
+    while time.time() - t0 < 90:
+        leaf = traverse(root)
+        simulation_result = rollout(leaf)
+        backpropagate(leaf, simulation_result)
+    return best_child(root)
+
+
+# function for node traversal
+def traverse(node):
+    while fully_expanded(node):
+        node = best_uct(node)
+    # in case no children are present / node is terminal
+    return pick_univisted(node.children) or node
+
+
+# function for the result of the simulation
+def rollout(node):
+    while non_terminal(node):
+        node = rollout_policy(node)
+    return result(node)
+
+
+# function for randomly selecting a child node
+def rollout_policy(node):
+    return pick_random(node.children)
+
+
+# function for backpropagation
+def backpropagate(node, result):
+    if is_root(node):
+        return
+    node.stats = update_stats(node, result)
+    backpropagate(node.parent)
+
+
+# function for selecting the best child
+# node with highest number of visits
+def best_child(node):
+    pick child with highest number of visits
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+### MINIMAX ALGORITHM ###
+
 # if worse than options already explored --> do not explore
 def minimax(game, depth, best_actions=[]):
     # print_debug('\n')
@@ -349,8 +463,6 @@ def minimax(game, depth, best_actions=[]):
             best_actions = res[2]
     best_actions.append(best_action)
     return (max_eval, best_action, best_actions)
-
-
 
 # if worse than options already explored -> do not explore
 def minimax2(game, depth, alpha, beta, maximizingPlayer):
@@ -385,6 +497,31 @@ def minimax2(game, depth, alpha, beta, maximizingPlayer):
             if beta <= alpha:
                 break
         return (minEval, best_action)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+### GAME LOOP ###
 
 number_of_cells = int(input())
 game = Game()
@@ -425,6 +562,7 @@ def print_state_game(game):
 
 
 while True:
+    t0 = time.time()
     day = int(input())
     game.day = day
     nutrients = int(input())
@@ -450,12 +588,9 @@ while True:
     for i in range(number_of_possible_actions):
         possible_action = input()
         game.possible_actions.append(Action.parse(possible_action))
-
     # print_state_game(game)
-
     # print(game.compute_next_action())
     res = minimax(game, 8)
-    # print_debug("ACTION: ", '')
     print(res[1])
     print_debug("::::::::::::::::")
     for action in res[2]:
