@@ -29,3 +29,15 @@ check l'ombre sauf si l'objectif est de grow pour complete
 
 loup garou
 maxi fete dans un chateau pour mes 25 ans
+
+
+SEED 32 16
+::::::::::::::::
+COMPLETE 16
+WAIT
+GROW 16
+WAIT
+GROW 16
+GROW 16
+WAIT
+SEED 32 16

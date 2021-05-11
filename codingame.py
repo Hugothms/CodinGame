@@ -2,6 +2,7 @@ import sys
 import math
 import copy
 import time
+import numpy as np
 from enum import Enum
 import random
 
@@ -135,34 +136,33 @@ class Game:
     ### SIMULATION ###
 
     def apply_actions(self, action, action_opp): # OK
-        game = copy.deepcopy(self)
         if action.type == ActionType.WAIT:
-            return game
+            return self
         elif action.type == ActionType.SEED:
             if action_opp.type == ActionType.SEED and action.target_cell_id == action_opp.target_cell_id:
                 # print_debug("you and opponenet tried to SEED on the same cell -> ABORT")
-                return game
+                return self
             # print_debug("pos of seeds:")
-            # for tree in [tree for tree in game.get_trees_player() if (tree.size == 0)]:
+            # for tree in [tree for tree in self.get_trees_player() if (tree.size == 0)]:
                 print_debug(tree.cell_index) # issue on calcul
-            # print_debug("cost of SEED: " + str(len([tree for tree in game.get_trees_player() if (tree.size == 0)])))
-            game.my_sun -= len([tree for tree in game.get_trees_player() if (tree.size == 0)])
-            game.trees.append(Tree(action.target_cell_id, 0, 1, 1))
-            game.get_tree_at_index(action.origin_cell_id).is_dormant = True
-            return game
+            # print_debug("cost of SEED: " + str(len([tree for tree in self.get_trees_player() if (tree.size == 0)])))
+            self.my_sun -= len([tree for tree in self.get_trees_player() if (tree.size == 0)])
+            self.trees.append(Tree(action.target_cell_id, 0, 1, 1))
+            self.get_tree_at_index(action.origin_cell_id).is_dormant = True
+            return self
         elif action.type == ActionType.GROW:
-            tree_to_grow = game.get_tree_at_index(action.target_cell_id)
-            # print_debug(costs_grow[tree_to_grow.size] + len([tree for tree in game.get_trees_player() if tree.size == (tree_to_grow.size + 1)]))
-            game.my_sun -= costs_grow[tree_to_grow.size] + len([tree for tree in game.get_trees_player() if tree.size == (tree_to_grow.size + 1)])
+            tree_to_grow = self.get_tree_at_index(action.target_cell_id)
+            # print_debug(costs_grow[tree_to_grow.size] + len([tree for tree in self.get_trees_player() if tree.size == (tree_to_grow.size + 1)]))
+            self.my_sun -= costs_grow[tree_to_grow.size] + len([tree for tree in self.get_trees_player() if tree.size == (tree_to_grow.size + 1)])
             tree_to_grow.size += 1
         elif action.type == ActionType.COMPLETE:
-            game.trees.remove(game.get_tree_at_index(action.target_cell_id))
-            game.my_sun -= 4
-            game.my_score += game.nutrients + (game.get_cell_at_index(action.target_cell_id).richness - 1) * 2
-            game.nutrients -= 1
+            self.trees.remove(self.get_tree_at_index(action.target_cell_id))
+            self.my_sun -= 4
+            self.my_score += self.nutrients + (self.get_cell_at_index(action.target_cell_id).richness - 1) * 2
+            self.nutrients -= 1
         # else:
             # print_debug("error action invalid")
-        return game
+        return self
 
 
 
@@ -302,11 +302,6 @@ class Game:
         suns = (self.my_sun - self.opponent_score)
         return score + suns
 
-
-
-
-
-
     def compute_next_action(self):
         """
         if self.my_score > self.opponent_score and not self.opponent_is_waiting and :
@@ -347,6 +342,7 @@ class Game:
                     output = action
         return output
 
+# END CLASS GAME
 
 
 
@@ -456,7 +452,6 @@ class Node:
 
 
 class MCTS:
-
     def __init__(self, game, model, args):
         self.game = game
         self.model = model
@@ -604,7 +599,8 @@ def minimax(game, depth, best_actions=[]):
         # for action_opp in find_all_possible_actions(game, 0):
         action_opp = Action(ActionType.WAIT)
         # print_debug("Turn actions: " + str(action) + ' /// ' + str(action_opp))
-        next_game = game.apply_actions(action, action_opp)
+        next_game = copy.deepcopy(game)
+        next_game.apply_actions(action, action_opp)
         next_game = next_game.new_turn(action.type == ActionType.WAIT and action_opp.type == ActionType.WAIT)
         res = minimax(next_game, depth - 1, best_actions)
         eval = res[0]
@@ -746,3 +742,5 @@ while True:
     print_debug("::::::::::::::::")
     for action in res[2]:
         print_debug(action)
+    # mcts = MCTS(game,)
+    # print(minimax(game, 8))
