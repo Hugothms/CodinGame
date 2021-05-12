@@ -1,3 +1,5 @@
+planter sur les cases opti et cut le 1ere arbre
+
 ne planter si size < 2
 trois arbres de size 3 au max (trop couteux apres)
 
@@ -41,3 +43,103 @@ GROW 16
 GROW 16
 WAIT
 SEED 32 16
+
+
+
+depth 8
+sans trees_score: 0.83s
+find_interesting_actions
+SEED 32 16
+=======> Score: 87.5
+*Evaluated Pos: 2436
+COMPLETE 16
+COMPLETE 32
+GROW 32
+GROW 16
+GROW 16
+GROW 16
+WAIT
+SEED 32 16
+
+depth 8
+sans trees_score: 0.83s
+find_all_possible_actions
+SEED 32 16
+=======> Score: 87.5
+*Evaluated Pos: 4266
+COMPLETE 16
+COMPLETE 32
+GROW 32
+GROW 16
+GROW 16
+GROW 16
+WAIT
+SEED 32 16
+
+
+
+depth 12
+sans trees_score: 110.04s
+find_interesting_actions
+SEED 32 16
+=======> Score: 166.0
+*Evaluated Pos: 344094
+COMPLETE 6
+COMPLETE 32
+GROW 32
+GROW 6
+GROW 6
+GROW 6
+WAIT
+SEED 16 6
+GROW 16
+GROW 16
+WAIT
+SEED 32 16
+
+depth 12
+sans trees_score: 179.30s
+find_all_possible_actions
+WAIT
+=======> Score: 147.0
+*Evaluated Pos: 557715
+COMPLETE 6
+COMPLETE 32
+GROW 32
+GROW 6
+GROW 6
+GROW 6
+WAIT
+SEED 16 6
+GROW 16
+WAIT
+SEED 32 16
+WAIT
+
+depth 12
+sans trees_score: 559.90s
+find_interesting_actions
+SEED 32 16
+=======> Score: 168.0
+*Evaluated Pos: 1728030
+COMPLETE 6
+COMPLETE 32
+GROW 32
+GROW 16
+GROW 6
+GROW 6
+GROW 6
+WAIT
+SEED 16 6
+GROW 16
+WAIT
+SEED 32 16
+
+
+depth 240
+sans trees_score:
+find_all_possible_actions
+
+
+
+
