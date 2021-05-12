@@ -10,7 +10,7 @@ circles=[range(0, 1), range(1, 7), range(7, 19), range(19, 37)]
 
 costs_grow=[1, 3, 7]
 
-best_cells_seed=[1, 3, 5, 8, 10, 12, 14, 16, 18, 19, 22, 25, 28, 31, 34]
+best_cells_seed=[0, 1, 3, 5, 8, 10, 12, 14, 16, 18, 19, 22, 25, 28, 31, 34]
 
 def get_initial_sun_exposed_cells(day):
     sun_exposed_cells = []
@@ -96,12 +96,12 @@ class Game:
         self.score = [0, 0]
         self.opponent_is_waiting = 0
 
-    def number_tree_lvl(self, lvl, to_play=True):
-        cpt = 0
+    def number_tree_lvl(self, to_play=True):
+        nb_tree_level = [0, 0, 0, 0]
         for tree in self.trees:
-            if (tree.is_mine == to_play and tree.size == lvl):
-                cpt += 1
-        return cpt
+            if (tree.is_mine == to_play):
+                nb_tree_level[tree.size] += 1
+        return nb_tree_level
 
     def get_trees_player(self, to_play=True):
         return [trees for trees in self.trees if trees.is_mine == to_play]
@@ -119,6 +119,28 @@ class Game:
             if cell.cell_index == index:
                 return cell
 
+    def print_state_game(self):
+        print_debug("day: " + str(self.day))
+
+        print_debug("nutrients: " + str(self.nutrients))
+
+        print_debug("sun: " + str(self.sun[0]))
+        print_debug("score: " + str(self.score[1]))
+
+        print_debug("opp_sun: " + str(self.sun[1]))
+        print_debug("opp_score: " + str(self.score[1]))
+        print_debug("opp_is_waiting: " + str(self.opponent_is_waiting))
+
+        print_debug("number_of_trees: " + str(len(self.trees)))
+        for tree in self.trees:
+            print_debug(" -cell_index: " + str(tree.cell_index))
+            print_debug("  size: " + str(tree.size))
+            print_debug("  is_mine: " + str(tree.is_mine))
+            print_debug("  is_dormant: " + str(tree.is_dormant))
+
+        print_debug("number_of_possible_actions: " + str(len(self.possible_actions)))
+        for possible_action in self.possible_actions:
+            print_debug(" -possible_action: " + str(possible_action))
 
 
 
@@ -135,7 +157,7 @@ class Game:
 
     ### SIMULATION ###
 
-    def apply_actions(self, action, action_opp, to_play=True): # OK
+    def apply_actions(self, action, action_opp, to_play=True):
         if action.type == ActionType.WAIT:
             return self
         elif action.type == ActionType.SEED:
@@ -160,14 +182,30 @@ class Game:
             self.sun[to_play == True] -= 4
             self.score[1] += self.nutrients + (self.get_cell_at_index(action.target_cell_id).richness - 1) * 2
             self.nutrients -= 1
-        # else:
-            # print_debug("error action invalid")
+        return self
+
+
+    def new_turn(self, new_day=False, to_play=True):
+        initial_sun_exposed_cells = get_initial_sun_exposed_cells(day)
+        for sun_exposed_cell in initial_sun_exposed_cells:
+            # print_debug("+++++++++++++++++++")
+            suns = self.sun_in_row(sun_exposed_cell, 0, 0)
+            self.sun[to_play == True] += suns[0]
+            self.sun[1] += suns[1]
+            # print_debug("MINE: " + str(suns[0]))
+            # print_debug("OPPO: " + str(suns[1]))
+        # print_debug("final sun[to_play == True]: " + str(self.sun[to_play == True]))
+        # print_debug("final sun[1]: " + str(self.sun[1]))
+        if new_day:
+            self.day += 1
+            for tree in self.trees:
+                if tree.is_dormant:
+                    tree.is_dormant = False
         return self
 
 
 
-    # should be replaced to find only interesting seed actions (with position_is_optimal)
-    def all_seed_actions_from_tree(self, cell_index, depth, visited_cells_ids): # OK
+    def all_seed_actions_from_tree(self, cell_index, depth, visited_cells_ids):
         actions = []
         neighbors = self.get_cell_at_index(cell_index).neighbors
         for neighbor_id in neighbors:
@@ -176,11 +214,9 @@ class Game:
                 actions.append(Action(ActionType.SEED, neighbor_id, cell_index))
                 if depth > 0:
                     actions.extend(self.all_seed_actions_from_tree(cell_index, depth - 1, visited_cells_ids))
-        # for action in actions:
-        #     print_debug(action)
         return actions
 
-    def find_all_possible_actions(self, to_play=True): # OK
+    def find_all_possible_actions(self, to_play=True):
         actions = [Action(ActionType.WAIT)]
         player_trees = self.get_trees_player(to_play)
         for tree in player_trees:
@@ -207,7 +243,7 @@ class Game:
                     return True;
         return False;
 
-    def interesting_seed_actions_from_tree(self, cell_index, depth, visited_cells_ids): # OK
+    def interesting_seed_actions_from_tree(self, cell_index, depth, visited_cells_ids):
         actions = []
         neighbors = self.get_cell_at_index(cell_index).neighbors
         for neighbor_id in neighbors:
@@ -234,31 +270,11 @@ class Game:
                 if tree.size > 1 and self.sun[to_play == True] >= player_nb_seeds:
                     visited_cells_ids = [-1, tree.cell_index]
                     actions.extend(self.interesting_seed_actions_from_tree(tree.cell_index, tree.size, visited_cells_ids))
-                    # actions.extend(self.all_seed_actions_from_tree(tree.cell_index, tree.size, visited_cells_ids))
         # print_debug("***********ACTIONS:***********")
         # actions.sort(key=sort_actions)
         # for action in actions:
         #     print_debug(action)
-        return actions # to try best cadidate first (like COMPLETE action before others)
-
-    # def filter_action(self, action):
-    #     # return True
-    #     if action.type == ActionType.WAIT:
-    #         return True
-    #     elif action.type == ActionType.SEED:
-    #         return action.target_cell_id not in self.get_cell_at_index(action.target_cell_id).neighbors
-    #     elif action.type == ActionType.GROW:
-    #         return True
-    #     elif action.type == ActionType.COMPLETE:
-    #         return True
-    #     return False
-
-    # def filter_actions(self, actions):
-    #     filtered = []
-    #     for action in actions:
-    #         if filter_action(self, action):
-    #             filtered.append(action)
-    #     return filtered
+        return actions
 
     def sun_in_row(self, sun_exposed_cell, shadow_range, shadow_size_tree, to_play=True):
         # print_debug("start sun_in_row: " + str(sun_exposed_cell) + '\t' + str(shadow_range))
@@ -280,24 +296,6 @@ class Game:
         sun[1] += suns[1]
         return (sun[to_play == True], sun[1])
 
-    def new_turn(self, new_day=False, to_play=True):
-        initial_sun_exposed_cells = get_initial_sun_exposed_cells(day)
-        for sun_exposed_cell in initial_sun_exposed_cells:
-            # print_debug("+++++++++++++++++++")
-            suns = self.sun_in_row(sun_exposed_cell, 0, 0)
-            self.sun[to_play == True] += suns[0]
-            self.sun[1] += suns[1]
-            # print_debug("MINE: " + str(suns[0]))
-            # print_debug("OPPO: " + str(suns[1]))
-        # print_debug("final sun[to_play == True]: " + str(self.sun[to_play == True]))
-        # print_debug("final sun[1]: " + str(self.sun[1]))
-        if new_day:
-            self.day += 1
-            for tree in self.trees:
-                if tree.is_dormant:
-                    tree.is_dormant = False
-        return self
-
     def evalutation_score_position(self, to_play=True):
         score = (self.score[to_play == True] - self.score[to_play == False])
         suns = (self.sun[to_play == True] - self.score[to_play == False]) / 4
@@ -317,7 +315,7 @@ class Game:
         # print_debug('')
         return score + suns + score_tree
 
-    def compute_next_action(self):
+    def compute_next_action2(self):
         """
         if self.score[1] > self.score[1] and not self.opponent_is_waiting and :
             #print_debug('Wait strategique ? pas sur mdr')
@@ -328,17 +326,12 @@ class Game:
         best_action = Action(ActionType.WAIT)
         bigger_grow = -1
         output = 'WAIT'
-        #self.possible_actions.sort(key=sort_actions)
+        #self.possible_actions.sort(key=Action.sort_actions)
 
+        # mode on plante a gogo
         if self.day < 6 or len(self.get_trees_player()) < 10:
             for action in self.possible_actions:
-                if (action.type == ActionType.SEED and
-                action.target_cell_id in best_cells_seed):
-                    if (action.target_cell_id > bigger_cell):
-                        bigger_cell = action.target_cell_id
-                        best_action = action
-                elif (action.type == ActionType.GROW and
-                best_action.type != ActionType.SEED and
+                if (action.type == ActionType.GROW and
                 action.target_cell_id in best_cells_seed):
                     if (action.target_cell_id < smaller_cell):
                         smaller_cell = action.target_cell_id
@@ -346,6 +339,12 @@ class Game:
                         if (size_target > bigger_grow):
                             bigger_grow = size_target
                             best_action = action
+                elif (action.type == ActionType.SEED and
+                best_action.type != ActionType.GROW and
+                action.target_cell_id in best_cells_seed):
+                    if (action.target_cell_id > bigger_cell):
+                        bigger_cell = action.target_cell_id
+                        best_action = action
             if self.day == 0 and best_action.type == ActionType.WAIT:
                 for action in self.possible_actions:
                     if action.type == ActionType.SEED:
@@ -354,13 +353,14 @@ class Game:
             for action in self.possible_actions:
                 #print_PA(action)
                 # COMPLETE au centre if possible
-                if ((len(self.get_trees_player()) > 8) and action.type == ActionType.COMPLETE and action.type.name <= best_action.type.name):
+                if (action.type == ActionType.COMPLETE and
+                (len(self.get_trees_player()) > 8 or self.day > 20)):
                     if (action.target_cell_id < smaller_cell):
                         smaller_cell = action.target_cell_id
                         best_action = action
                 # GROW en priorité a l'interieur
                 elif (action.type == ActionType.GROW and
-                action.type.name <= best_action.type.name):
+                best_action.type != ActionType.COMPLETE):
                     if (action.target_cell_id < smaller_cell):
                         smaller_cell = action.target_cell_id
                         size_target = self.get_tree_at_index(action.target_cell_id).size
@@ -369,7 +369,8 @@ class Game:
                             best_action = action
                 # SEED if no GROW avalaible and day < 14
                 elif (action.type == ActionType.SEED and
-                action.type.name <= best_action.type.name and
+                best_action.type != ActionType.COMPLETE and
+                best_action.type != ActionType.GROW and
                 (self.day < 14 or len(self.get_trees_player())) == 1):
                     if (action.target_cell_id > bigger_cell):
                         bigger_cell = action.target_cell_id
@@ -384,229 +385,86 @@ class Game:
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-def ucb_score(parent, child):
-    """
-    The score for an action that would transition between the parent and child.
-    """
-    prior_score = child.prior * math.sqrt(parent.visit_count) / (child.visit_count + 1)
-    if child.visit_count > 0:
-        # The value of the child is from the perspective of the opposing player
-        value_score = -child.value()
-    else:
-        value_score = 0
-
-    return value_score + prior_score
-
-
-class Node:
-    def __init__(self, prior, to_play):
-        self.visit_count = 0
-        self.to_play = to_play
-        self.prior = prior
-        self.value_sum = 0
-        self.children = {}
-        self.state = None
-
-    def expanded(self):
-        return len(self.children) > 0
-
-    def value(self):
-        if self.visit_count == 0:
-            return 0
-        return self.value_sum / self.visit_count
-
-    def select_action(self, temperature):
+    def compute_next_action(self):
         """
-        Select action according to the visit count distribution and the temperature.
+        if self.score[1] > self.score[1] and not self.opponent_is_waiting and :
+            #print_debug('Wait strategique ? pas sur mdr')
+            return "WAIT Wait strategique ?"
         """
-        visit_counts = np.array([child.visit_count for child in self.children.values()])
-        actions = [action for action in self.children.keys()]
-        if temperature == 0:
-            action = actions[np.argmax(visit_counts)]
-        elif temperature == float("inf"):
-            action = np.random.choice(actions)
-        else:
-            # See paper appendix Data Generation
-            visit_count_distribution = visit_counts ** (1 / temperature)
-            visit_count_distribution = visit_count_distribution / sum(visit_count_distribution)
-            action = np.random.choice(actions, p=visit_count_distribution)
-
-        return action
-
-    def select_child(self):
-        """
-        Select the child with the highest UCB score.
-        """
-        best_score = -np.inf
-        best_action.type = -1
-        best_child = None
-
-        for action, child in self.children.items():
-            score = ucb_score(self, child)
-            if score > best_score:
-                best_score = score
-                best_action.type = action
-                best_child = child
-
-        return best_action.type, best_child
-
-    def expand(self, state, to_play, action_probs):
-        """
-        We expand a node and keep track of the prior policy probability given by neural network
-        """
-        self.to_play = to_play
-        self.state = state
-        for a, prob in enumerate(action_probs):
-            if prob != 0:
-                self.children[a] = Node(prior=prob, to_play=self.to_play * -1)
-
-    def __repr__(self):
-        """
-        Debugger pretty print node info
-        """
-        prior = "{0:.2f}".format(self.prior)
-        return "{} Prior: {} Count: {} Value: {}".format(self.state.__str__(), prior, self.visit_count, self.value())
+        smaller_cell = 37
+        bigger_cell = 0
+        best_action = Action(ActionType.WAIT)
+        bigger_grow = -1
+        output = 'WAIT'
+        #self.possible_actions.sort(key=Action.sort_actions)
+        for action in self.possible_actions:
+            if self.day < 20:
+                if self.get_trees_player() jai pas darbre size 2 or jai pas darbre size 3:
+                    if je peux GROW un arbre size 0 ou 1 -> 2:
+                        if peu darbres size 2-3 a lexterieur:
+                            a lexterieur
+                        else:
+                            a linterieur
+                else:
+                    if self.day >= 13:
+                        pass
+            else:
+                if action.type == ActionType.COMPLETE:
+                    priorité a linterieur
 
 
-class MCTS:
-    def __init__(self, game, model, args):
-        self.game = game
-        self.model = model
-        self.args = args
-
-    def run(self, model, state, to_play):
-
-        root = Node(0, to_play)
-
-        # EXPAND root
-        action_probs, value = model.predict(state)
-        valid_moves = self.game.get_valid_moves(state)
-        action_probs = action_probs * valid_moves  # mask invalid moves
-        action_probs /= np.sum(action_probs)
-        root.expand(state, to_play, action_probs)
-
-        for _ in range(self.args['num_simulations']):
-            node = root
-            search_path = [node]
-
-            # SELECT
-            while node.expanded():
-                action, node = node.select_child()
-                search_path.append(node)
-
-            parent = search_path[-2]
-            state = parent.state
-            # Now we're at a leaf node and we would like to expand
-            # Players always play from their own perspective
-            next_state, _ = self.game.get_next_state(state, to_play=True, action=action)
-            # Get the board from the perspective of the other player
-            next_state = self.game.get_canonical_board(next_state, to_play=-1)
-
-            # The value of the new state from the perspective of the other player
-            value = self.game.get_reward_for_player(next_state, to_play=True)
-            if value is None:
-                # If the game has not ended:
-                # EXPAND
-                action_probs, value = model.predict(next_state)
-                valid_moves = self.game.get_valid_moves(next_state)
-                action_probs = action_probs * valid_moves  # mask invalid moves
-                action_probs /= np.sum(action_probs)
-                node.expand(next_state, parent.to_play * -1, action_probs)
-
-            self.backpropagate(search_path, value, parent.to_play * -1)
-
-        return root
-
-    def backpropagate(self, search_path, value, to_play):
-        """
-        At the end of a simulation, we propagate the evaluation all the way up the tree
-        to the root.
-        """
-        for node in reversed(search_path):
-            node.value_sum += value if node.to_play == to_play else -value
-            node.visit_count += 1
-
-
-
-
-
-# class Node:
-#     def __init__(self, win=0, nb_visit=0):
-#         self.win = win
-#         self.nb_visit = nb_visit
-
-# # main function for the Monte Carlo Tree Search
-# def monte_carlo_tree_search(game, t0):
-#     node = Node()
-#     while time.time() - t0 < 90:
-#         leaf = traverse(game)
-#         simulation_result = rollout(leaf)
-#         backpropagate(leaf, simulation_result)
-#     return best_child(game)
-
-# def best_uct(node):
-#     return node.win / node.nb_visit + 2 * math.sqrt(math.log(pere_expl) / node.nb_visit)
-
-# # function for node traversal
-# def traverse(game, node):
-#     for action in find_all_possible_actions(game):
-#         node = Node()
-#         game = best_uct(game)
-#     # in case no children are present / node is terminal
-#     return pick_univisted(node.children) or node
-
-
-# # function for the result of the simulation
-# def rollout(node):
-#     while non_terminal(node):
-#         node = rollout_policy(node)
-#     return result(node)
-
-
-# # function for randomly selecting a child node
-# def rollout_policy(node):
-#     return pick_random(node.children)
-
-
-# # function for backpropagation
-# def backpropagate(node, result):
-#     if is_root(node):
-#         return
-#     node.stats = update_stats(node, result)
-#     backpropagate(node.parent)
-
-
-# # function for selecting the best child
-# # node with highest number of visits
-# def best_child(node):
-#     pick child with highest number of visits
-
-
-
-
-
-
+        # mode on plante a gogo
+        if self.day < 6 or len(self.get_trees_player()) < 10:
+            for action in self.possible_actions:
+                if (action.type == ActionType.GROW and
+                action.target_cell_id in best_cells_seed):
+                    if (action.target_cell_id < smaller_cell):
+                        smaller_cell = action.target_cell_id
+                        size_target = self.get_tree_at_index(action.target_cell_id).size
+                        if (size_target > bigger_grow):
+                            bigger_grow = size_target
+                            best_action = action
+                elif (action.type == ActionType.SEED and
+                best_action.type != ActionType.GROW and
+                action.target_cell_id in best_cells_seed):
+                    if (action.target_cell_id > bigger_cell):
+                        bigger_cell = action.target_cell_id
+                        best_action = action
+            if self.day == 0 and best_action.type == ActionType.WAIT:
+                for action in self.possible_actions:
+                    if action.type == ActionType.SEED:
+                        best_action = action
+        elif 6 <= self.day < 25:
+            for action in self.possible_actions:
+                #print_PA(action)
+                # COMPLETE au centre if possible
+                if (action.type == ActionType.COMPLETE and
+                (len(self.get_trees_player()) > 8 or self.day > 20)):
+                    if (action.target_cell_id < smaller_cell):
+                        smaller_cell = action.target_cell_id
+                        best_action = action
+                # GROW en priorité a l'interieur
+                elif (action.type == ActionType.GROW and
+                best_action.type != ActionType.COMPLETE):
+                    if (action.target_cell_id < smaller_cell):
+                        smaller_cell = action.target_cell_id
+                        size_target = self.get_tree_at_index(action.target_cell_id).size
+                        if (size_target > bigger_grow):
+                            bigger_grow = size_target
+                            best_action = action
+                # SEED if no GROW avalaible and day < 14
+                elif (action.type == ActionType.SEED and
+                best_action.type != ActionType.COMPLETE and
+                best_action.type != ActionType.GROW and
+                (self.day < 14 or len(self.get_trees_player())) == 1):
+                    if (action.target_cell_id > bigger_cell):
+                        bigger_cell = action.target_cell_id
+                        best_action = action
+        elif 15 <= self.day < 20:
+            pass
+        elif 20 <= self.day:
+            pass
+        return best_action
 
 
 
@@ -615,7 +473,6 @@ class MCTS:
 
 ### MINIMAX ALGORITHM ###
 
-# if worse than options already explored --> do not explore
 def minimax(game, depth, alpha=-math.inf, beta=math.inf, best_actions=[], time_init=time.time(), time_max=0.009):
     global seen
     global printed
@@ -627,16 +484,15 @@ def minimax(game, depth, alpha=-math.inf, beta=math.inf, best_actions=[], time_i
 
     global position_count
     position_count += 1
-    # print_debug("depth: " + str(depth))
     if depth == 0 or game.day == 25 or time.time() - time_init > time_max: # or time is up
         eval = game.evalutation_score_position()
         # print_debug("eval: " + str(eval) + '\n')
-        return (eval, None, []) # static evaluation of game (todo: to enhance)
+        return (eval, None, [])
     max_eval = -math.inf
     for action in game.find_interesting_actions(True):
     #     for action_opp in game.find_interesting_actions(False):
     # for action in game.find_all_possible_actions(True):
-        # for action_opp in game.find_all_possible_actions(False):
+    #     for action_opp in game.find_all_possible_actions(False):
         action_opp = Action(ActionType.WAIT)
         # print_debug("Turn actions: " + str(action) + ' /// ' + str(action_opp))
         next_game = copy.deepcopy(game)
@@ -647,13 +503,19 @@ def minimax(game, depth, alpha=-math.inf, beta=math.inf, best_actions=[], time_i
         eval = res[0]
         if eval > max_eval:
             max_eval = eval
-            best_action.type = action
+            best_action = action
             best_actions = res[2]
         # alpha = max(alpha, eval)
         # if beta <= alpha:
         #     break
-    best_actions.append(best_action.type)
-    return (max_eval, best_action.type, best_actions)
+    best_actions.append(best_action)
+    return (max_eval, best_action, best_actions)
+
+
+
+
+
+
 
 
 
@@ -672,30 +534,6 @@ for i in range(number_of_cells):
     # print_debug("neigh_4: " + str(neigh_4))
     # print_debug("neigh_5: " + str(neigh_5))
     game.board.append(Cell(cell_index, richness, [neigh_0, neigh_1, neigh_2, neigh_3, neigh_4, neigh_5]))
-
-def print_state_game(game):
-    print_debug("day: " + str(game.day))
-
-    print_debug("nutrients: " + str(game.nutrients))
-
-    print_debug("sun: " + str(game.sun[0]))
-    print_debug("score: " + str(game.score[1]))
-
-    print_debug("opp_sun: " + str(game.sun[1]))
-    print_debug("opp_score: " + str(game.score[1]))
-    print_debug("opp_is_waiting: " + str(game.opponent_is_waiting))
-
-    print_debug("number_of_trees: " + str(len(game.trees)))
-    for tree in game.trees:
-        print_debug(" -cell_index: " + str(tree.cell_index))
-        print_debug("  size: " + str(tree.size))
-        print_debug("  is_mine: " + str(tree.is_mine))
-        print_debug("  is_dormant: " + str(tree.is_dormant))
-
-    print_debug("number_of_possible_actions: " + str(len(game.possible_actions)))
-    for possible_action in game.possible_actions:
-        print_debug(" -possible_action: " + str(possible_action))
-
 
 while True:
     t0 = time.time()
@@ -724,21 +562,25 @@ while True:
     for i in range(number_of_possible_actions):
         possible_action = input()
         game.possible_actions.append(Action.parse(possible_action))
-    # print_state_game(game)
-    # print(game.compute_next_action())
+
+    # game.print_state_game()
+
+    print(game.compute_next_action())
     # for action in game.find_all_possible_actions(True):
     #     print_debug(action)
+
     global position_count
     position_count = 0
     global seen
     seen = []
     global printed
     printed = []
-    res = minimax(game, depth=30, time_max=180000000)
-    print(res[1])
-    print_debug("=======> Score: " + str(res[0]))
-    print_debug("*Evaluated Pos: " + str(position_count))
-    for action in res[2]:
-        print_debug(action)
+    # res = minimax(game, depth=30, time_max=180000000)
+    # print(res[1])
+    # print_debug("=======> Score: " + str(res[0]))
+    # print_debug("*Evaluated Pos: " + str(position_count))
+    # for action in res[2]:
+    #     print_debug(action)
+
     # mcts = MCTS(game,)
     # print(minimax(game, 8))

@@ -24,13 +24,38 @@ ferme a soleil sur les bords et grow + complete au centre
 
 check l'ombre sauf si l'objectif est de grow pour complete
 
-
+*******************************************************
+if day < 20:
+	if j'ai pas darbre size 2 ou 3:
+		if je peux GROW un arbre size 0 ou 1 -> 2:
+			if peu d'arbres size 2-3 a l'exterieur:
+				a lexterieur
+			else:
+				a l'interieur
+	else:
+		if day >= 13
+else:
+	if action == COMPLETE:
+		priorité a l'interieur
 
 
 
 
 loup garou
 maxi fete dans un chateau pour mes 25 ans
+
+en sec:
+5       0.008909940719604492
+4       0.009639978408813477
+3       0.01032400131225586
+2       0.0109710693359375
+1       0.011938095092773438
+0       0.012656927108764648
+6       0.23786306381225586
+7       4.130886077880859
+8       32.568557262420654
+9       198.8067569732666
+10      1160.7949662208557
 
 
 SEED 32 16
