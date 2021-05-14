@@ -380,13 +380,13 @@ class Game:
 
 
     def compute_next_action(self):
+        NB_TREE_0_REQUIRED=1
+        NB_TREE_1_REQUIRED=1
         NB_TREE_2_REQUIRED=8
         NB_TREE_3_REQUIRED=0
         NB_TREE_2_REQUIRED_EXT=2
         NB_TREE_3_REQUIRED_EXT=2
 
-        most_intern_cell = 37
-        most_extern_cell = 0
         best_action = Action(ActionType.WAIT)
         nb_tree_size = number_tree_size(self.get_trees_player())
         bigger_grow_cadidate = -1
@@ -394,13 +394,11 @@ class Game:
         for action in self.possible_actions:
             if self.day > 20:
                 if action.type == ActionType.COMPLETE:
-                    if action.target_cell_id < most_intern_cell:
-                        most_intern_cell = action.target_cell_id
+                    if most_inside(action, best_action):
                         best_action = action
-                elif action.type == ActionType.GROW and best_action.type not in [ActionType.COMPLETE]:
-                    if action.target_cell_id < most_intern_cell:
-                        most_intern_cell = action.target_cell_id
-                        best_action = action
+                # elif action.type == ActionType.GROW and best_action.type not in [ActionType.COMPLETE]:
+                #     if most_inside(action, best_action):
+                #         best_action = action
 
 
             elif nb_tree_size[2] < NB_TREE_2_REQUIRED or nb_tree_size[3] < NB_TREE_3_REQUIRED:
@@ -408,15 +406,13 @@ class Game:
                     # if self.get_tree_at_index(action.target_cell_id).size <= 2:
                         nb_tree_size_ext = number_tree_size(self.get_tree_at_index(19, 36))
                         if nb_tree_size_ext[2] < NB_TREE_2_REQUIRED_EXT or nb_tree_size_ext[3] < NB_TREE_3_REQUIRED_EXT:
-                            if action.target_cell_id > most_extern_cell:
-                                most_extern_cell = action.target_cell_id
+                            if most_outside(action, best_action):
                                 size_target = self.get_tree_at_index(action.target_cell_id).size
                                 if size_target > bigger_grow_cadidate:
                                     bigger_grow_cadidate = size_target
                                     best_action = action
                         else: # si jai assez (trop) d'arbres size 2 et 3
-                            if action.target_cell_id < most_intern_cell:
-                                most_intern_cell = action.target_cell_id
+                            if most_inside(action, best_action):
                                 size_target = self.get_tree_at_index(action.target_cell_id).size
                                 if size_target > bigger_grow_cadidate:
                                     bigger_grow_cadidate = size_target
@@ -427,17 +423,15 @@ class Game:
                 elif action.type == ActionType.COMPLETE and best_action.type not in [ActionType.SEED, ActionType.GROW]:
                     if action.target_cell_id in best_cells:
                         best_action = action
-            elif nb_tree_size[0] < 1 or nb_tree_size[1] < 1: # si jai assez (trop) d'arbres size 2 et 3 MAIS PAS 0 et 1
-                if action.type == ActionType.COMPLETE and best_action.type not in [ActionType.COMPLETE]:
-                    if action.target_cell_id < most_intern_cell:
-                        most_intern_cell = action.target_cell_id
+            elif nb_tree_size[0] < NB_TREE_0_REQUIRED or nb_tree_size[1] < NB_TREE_1_REQUIRED: # si jai assez (trop) d'arbres size 2 et 3 MAIS PAS 0 et 1
+                if action.type == ActionType.COMPLETE:
+                    if most_inside(action, best_action):
                         best_action = action
-                if action.type == ActionType.GROW:
+                if action.type == ActionType.GROW and best_action.type not in [ActionType.COMPLETE]:
                     if self.get_tree_at_index(action.target_cell_id).size <= 2:
                         nb_tree_size_ext = number_tree_size(self.get_tree_at_index(19, 36))
                         if nb_tree_size_ext[2] < NB_TREE_2_REQUIRED_EXT or nb_tree_size_ext[3] < NB_TREE_3_REQUIRED_EXT:
-                            if action.target_cell_id > most_extern_cell:
-                                most_extern_cell = action.target_cell_id
+                            if most_outside(action, best_action):
                                 size_target = self.get_tree_at_index(action.target_cell_id).size
                                 if size_target > bigger_grow_cadidate:
                                     bigger_grow_cadidate = size_target
@@ -448,6 +442,11 @@ class Game:
 
 
 
+def most_inside(action, best_action):
+    return best_action.target_cell_id is None or action.target_cell_id < best_action.target_cell_id
+
+def most_outside(action, best_action):
+    return best_action.target_cell_id is None or action.target_cell_id > best_action.target_cell_id
 
 
 ### MINIMAX ALGORITHM ###
