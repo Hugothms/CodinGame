@@ -400,12 +400,13 @@ class Game:
     def compute_next_action(self):
         NB_TREE_0_REQUIRED_INSIDE=1
         NB_TREE_1_REQUIRED_INSIDE=1
-        NB_TREE_2_REQUIRED_INSIDE=1
+        NB_TREE_2_REQUIRED_INSIDE=4
         NB_TREE_3_REQUIRED_INSIDE=2
-        NB_TREE_2_REQUIRED_OUTSIDE=5
+        NB_TREE_2_REQUIRED_OUTSIDE=3
         NB_TREE_3_REQUIRED_OUTSIDE=0
 
         best_action = Action(ActionType.WAIT)
+        nb_tree_size = number_tree_size(self.get_trees_player())
         nb_tree_size_inside = number_tree_size(self.get_tree_at_index(0, 18, True))
         nb_tree_size_outside = number_tree_size(self.get_tree_at_index(19, 36, True))
         bigger_grow_cadidate = -1
@@ -413,7 +414,7 @@ class Game:
         debug = "0"
         for action in self.possible_actions:
             print_debug(action)
-            if self.day > 22:
+            if self.day > 22 or nb_tree_size[3] > 3:
                 if action.type == ActionType.COMPLETE:
                     if most_inside_so_far(action, best_action):
                         best_action = action
@@ -422,41 +423,37 @@ class Game:
                 #         best_action = action
 
 
-            elif nb_tree_size_inside[2] < NB_TREE_2_REQUIRED_INSIDE or nb_tree_size_inside[3] < NB_TREE_3_REQUIRED_INSIDE:
+            elif nb_tree_size_inside[2] + nb_tree_size_inside[3] < NB_TREE_2_REQUIRED_INSIDE:
                 # faut faire des arbres
-                if nb_tree_size_outside[2] < NB_TREE_2_REQUIRED_OUTSIDE:
+                if nb_tree_size_outside[2] + nb_tree_size_outside[3] < NB_TREE_2_REQUIRED_OUTSIDE:
                     # outside
                     if action.type == ActionType.GROW:
-                        # if nb_tree_size_outside[1] > 0 or nb_tree_size_outside[0] > 0:
+                        if nb_tree_size[self.get_tree_at_index(action.target_cell_id).size + 1] <= 3:
                             size_target = self.get_tree_at_index(action.target_cell_id).size
-                            print_debug("size_target: " +  str(size_target))
-                            print_debug("smaller_grow_cadidate: " +  str(smaller_grow_cadidate))
-                            if size_target < smaller_grow_cadidate:
-                                print_debug("OK")
-                                if most_outside_so_far(action, best_action):
-                                    smaller_grow_cadidate = size_target
+                            if size_target <= smaller_grow_cadidate:
+                                smaller_grow_cadidate = size_target
+                                if most_outside_so_far_grow(action, best_action):
                                     best_action = action
                                     debug = "1"
                                     print_debug("1")
-                    if action.type == ActionType.SEED and best_action.type not in [ActionType.GROW]:# and not self.is_neighbors(action):
-                        if action.target_cell_id in best_cells:
+                    if action.type == ActionType.SEED and best_action.type not in [ActionType.GROW] and nb_tree_size[0] <= 0 and nb_tree_size[1] <= 3:# and not self.is_neighbors(action):
                             if most_outside_so_far(action, best_action):
                                     best_action = action
                                     debug = "2"
                                     print_debug("2")
                 else:
                     # inside
-                    if action.type == ActionType.GROW and (nb_tree_size_inside[1] > 0 or nb_tree_size_inside[0] > 0):
+                    if action.type == ActionType.GROW and (nb_tree_size_inside[1] + nb_tree_size_inside[0] > 0):
                         size_target = self.get_tree_at_index(action.target_cell_id).size
-                        if size_target < smaller_grow_cadidate:
-                            if most_inside_so_far(action, best_action):
-                                smaller_grow_cadidate = size_target
+                        if most_inside_so_far_grow(action, best_action):
+                            # if size_target >= bigger_grow_cadidate:
+                            #     bigger_grow_cadidate = size_target
                                 best_action = action
                                 debug = "3"
                                 print_debug("3")
-                    if action.type == ActionType.SEED and best_action.type not in [ActionType.GROW]:# and not self.is_neighbors(action):
+                    if action.type == ActionType.SEED and best_action.type not in [ActionType.GROW] and nb_tree_size[0] <= 1 and nb_tree_size[1] <= 3:# and not self.is_neighbors(action):
                         if action.target_cell_id in best_cells:
-                            if most_outside_so_far(action, best_action):
+                            if most_inside_so_far(action, best_action):
                                 best_action = action
                                 debug = "4"
                                 print_debug("4")
@@ -471,7 +468,7 @@ class Game:
                 if action.type == ActionType.GROW and best_action.type not in [ActionType.COMPLETE]:
                     if most_outside_so_far(action, best_action):
                         size_target = self.get_tree_at_index(action.target_cell_id).size
-                        if size_target < smaller_grow_cadidate:
+                        if size_target >= bigger_grow_cadidate:
                             smaller_grow_cadidate = size_target
                             best_action = action
                             debug = "6"
@@ -481,13 +478,41 @@ class Game:
 # END CLASS GAME
 
 def most_inside_so_far(action:Action, best_action:Action):
-    return best_action.target_cell_id is None or action.target_cell_id < best_action.target_cell_id
+    inside = [0, 1, 2, 3, 4, 5, 6, 8, 10, 12, 14, 16, 18]
+    if best_action.target_cell_id is None:
+        return True
+    elif best_action.target_cell_id not in inside:
+        return action.target_cell_id in inside or action.target_cell_id < best_action.target_cell_id
+    return action.target_cell_id in inside and action.target_cell_id < best_action.target_cell_id
 
 def most_outside_so_far(action:Action, best_action:Action):
-    # if best_action in best_cells:
-    # sinon ext
-    return best_action.target_cell_id is None or action.target_cell_id > best_action.target_cell_id
+    outside = [19, 22, 25, 28, 31, 34]
+    if best_action.target_cell_id is None:
+        return True
+    elif best_action.target_cell_id not in outside:
+        return action.target_cell_id in outside or action.target_cell_id > best_action.target_cell_id
+    return action.target_cell_id in outside and action.target_cell_id > best_action.target_cell_id
 
+def most_inside_so_far_grow(action:Action, best_action:Action):
+    inside = [0, 1, 2, 3, 4, 5, 6, 8, 10, 12, 14, 16, 18]
+    if best_action.target_cell_id is None:
+        return True
+    elif best_action.target_cell_id in inside:
+        return action.target_cell_id in inside or action.target_cell_id < best_action.target_cell_id
+    elif action.target_cell_id in inside:
+        # return action.target_cell_id > best_action.target_cell_id
+        return action.target_cell_id in inside
+    return False
+
+def most_outside_so_far_grow(action:Action, best_action:Action):
+    outside = [19, 22, 25, 28, 31, 34]
+    if best_action.target_cell_id is None:
+        return True
+    elif best_action.target_cell_id in outside:
+        return action.target_cell_id in outside or action.target_cell_id > best_action.target_cell_id
+    elif action.target_cell_id in outside:
+        return action.target_cell_id > best_action.target_cell_id
+    return False
 
 ### MINIMAX ALGORITHM ###
 
