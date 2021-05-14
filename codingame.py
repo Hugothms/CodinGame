@@ -23,7 +23,7 @@ def get_initial_sun_exposed_cells(day:int):
 def print_debug(str, end='\n'):
     print(str, file=sys.stderr, flush=True, end=end)
 
-def number_tree_size(trees: List, to_play:bool=True):
+def number_tree_size(trees:list, to_play:bool=True):
     nb_tree_level = [0, 0, 0, 0]
     for tree in trees:
         if (tree.is_mine == to_play):
@@ -222,7 +222,7 @@ class Game:
 
 
 
-    def all_seed_actions_from_tree(self, cell_id:int, depth:int, visited_cells_ids:List):
+    def all_seed_actions_from_tree(self, cell_id:int, depth:int, visited_cells_ids:list):
         actions = []
         neighbors = self.get_cell_at_index(cell_id).neighbors
         for neighbor_id in neighbors:
@@ -252,7 +252,7 @@ class Game:
         # print_debug("**************")
         return actions # to try best cadidate first (like COMPLETE action before others)
 
-    def interesting_seed_actions_from_tree(self, cell_id:int, depth:int, visited_cells_ids:List):
+    def interesting_seed_actions_from_tree(self, cell_id:int, depth:int, visited_cells_ids:list):
         actions = []
         neighbors = self.get_cell_at_index(cell_id).neighbors
         for neighbor_id in neighbors:

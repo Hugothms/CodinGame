@@ -12,7 +12,7 @@ costs_grow=[1, 3, 7]
 
 best_cells_seed=[0, 1, 3, 5, 8, 10, 12, 14, 16, 18, 19, 22, 25, 28, 31, 34]
 
-def get_initial_sun_exposed_cells(day):
+def get_initial_sun_exposed_cells(day:int):
     sun_exposed_cells = []
     for num in range(6, 13):
         sun_exposed_cells.append((num + 3 * day) % 18 + 19)
@@ -21,7 +21,12 @@ def get_initial_sun_exposed_cells(day):
 def print_debug(str, end='\n'):
     print(str, file=sys.stderr, flush=True, end=end)
 
-
+def number_tree_size(trees:list, to_play:bool=True):
+    nb_tree_level = [0, 0, 0, 0]
+    for tree in trees:
+        if (tree.is_mine == to_play):
+            nb_tree_level[tree.size] += 1
+    return nb_tree_level
 
 
 
@@ -87,28 +92,39 @@ class Game:
         self.score = [0, 0]
         self.opponent_is_waiting = 0
 
-    def number_tree_lvl(self, lvl, to_play=True):
-        cpt = 0
-        for tree in self.trees:
-            if (tree.is_mine == to_play and tree.size == lvl):
-                cpt += 1
-        return cpt
 
-    def get_trees_player(self, to_play=True):
+    def get_trees_player(self, to_play:bool=True):
         return [trees for trees in self.trees if trees.is_mine == to_play]
 
-    def get_seeds_player(self, to_play=True):
+    def get_seeds_player(self, to_play:bool=True):
         return [seeds for seeds in self.get_trees_player(to_play) if seeds.size == 0]
 
-    def get_tree_at_index(self, index):
+    def get_tree_at_index(self, start:int, end:int=None, to_play:bool=None):
+        res_trees = []
         for tree in self.trees:
-            if tree.cell_index == index:
-                return tree
+            if to_play is None or tree.is_mine == to_play:
+                if end is None:
+                    if tree.cell_id == start:
+                        return tree
+                else:
+                    if start <= tree.cell_id <= end:
+                        res_trees.append(tree)
+        if end is None:
+            return None
+        return res_trees
 
-    def get_cell_at_index(self, index):
+    def get_cell_at_index(self, index:int):
         for cell in self.board:
-            if cell.cell_index == index:
+            if cell.cell_id == index:
                 return cell
+
+    def position_is_optimal(self, action:Action):
+        cell_action = self.get_cell_at_index(action.target_cell_id)
+        for neighbor in cell_action.neighbors:
+            if neighbor != -1 and self.get_cell_at_index(neighbor).neighbors[(i + 1) % 5] != -1:
+                if self.get_cell_at_index(neighbor).neighbors[(i + 1) % 5] == action.target_cell_id:
+                    return True
+        return False
 
     def print_state_game(self):
         print_debug("day: " + str(self.day))
@@ -124,7 +140,7 @@ class Game:
 
         print_debug("number_of_trees: " + str(len(self.trees)))
         for tree in self.trees:
-            print_debug(" -cell_index: " + str(tree.cell_index))
+            print_debug(" -cell_id: " + str(tree.cell_id))
             print_debug("  size: " + str(tree.size))
             print_debug("  is_mine: " + str(tree.is_mine))
             print_debug("  is_dormant: " + str(tree.is_dormant))
@@ -132,6 +148,7 @@ class Game:
         print_debug("number_of_possible_actions: " + str(len(self.possible_actions)))
         for possible_action in self.possible_actions:
             print_debug(" -possible_action: " + str(possible_action))
+
 
 
 
@@ -154,7 +171,7 @@ class Game:
         #self.possible_actions.sort(key=Action.sort_actions)
 
         # mode on plante a gogo
-        if self.day < 6:
+        if self.day < 7:
             for action in self.possible_actions:
                 if (action.type == ActionType.GROW and action.target_cell_id in best_cells_seed):
                     if (action.target_cell_id < smaller_cell):
