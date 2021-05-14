@@ -156,17 +156,14 @@ class Game:
         # mode on plante a gogo
         if self.day < 6:
             for action in self.possible_actions:
-                if (action.type == ActionType.GROW and
-                action.target_cell_id in best_cells_seed):
+                if (action.type == ActionType.GROW and action.target_cell_id in best_cells_seed):
                     if (action.target_cell_id < smaller_cell):
                         smaller_cell = action.target_cell_id
                         size_target = self.get_tree_at_index(action.target_cell_id).size
                         if (size_target > bigger_grow):
                             bigger_grow = size_target
                             best_action = action
-                elif (action.type == ActionType.SEED and
-                best_action.type != ActionType.GROW and
-                action.target_cell_id in best_cells_seed):
+                elif (action.type == ActionType.SEED and best_action.type != ActionType.GROW and action.target_cell_id in best_cells_seed):
                     if (action.target_cell_id > bigger_cell):
                         bigger_cell = action.target_cell_id
                         best_action = action
@@ -178,14 +175,12 @@ class Game:
             for action in self.possible_actions:
                 #print_PA(action)
                 # COMPLETE au centre if possible
-                if (action.type == ActionType.COMPLETE and
-                (len(self.get_trees_player()) > 8 or self.day > 21)):
+                if (action.type == ActionType.COMPLETE and (len(self.get_trees_player()) > 8 or self.day > 21)):
                     if (action.target_cell_id < smaller_cell):
                         smaller_cell = action.target_cell_id
                         best_action = action
                 # GROW en priorité a l'interieur
-                elif (action.type == ActionType.GROW and
-                best_action.type != ActionType.COMPLETE):
+                elif (action.type == ActionType.GROW and best_action.type != ActionType.COMPLETE):
                     if (action.target_cell_id < smaller_cell):
                         smaller_cell = action.target_cell_id
                         size_target = self.get_tree_at_index(action.target_cell_id).size
@@ -193,10 +188,7 @@ class Game:
                             bigger_grow = size_target
                             best_action = action
                 # SEED if no GROW avalaible and day < 14
-                elif (action.type == ActionType.SEED and
-                best_action.type != ActionType.COMPLETE and
-                best_action.type != ActionType.GROW and
-                (self.day < 14 or len(self.get_trees_player())) == 1):
+                elif (action.type == ActionType.SEED and best_action.type != ActionType.COMPLETE and best_action.type != ActionType.GROW and (self.day < 14 or len(self.get_trees_player())) == 1):
                     if (action.target_cell_id > bigger_cell):
                         bigger_cell = action.target_cell_id
                         best_action = action
