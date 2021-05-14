@@ -10,7 +10,7 @@ circles=[range(0, 1), range(1, 7), range(7, 19), range(19, 37)]
 
 costs_grow=[1, 3, 7]
 
-best_cells=[0, 1, 3, 5, 8, 10, 12, 14, 16, 18, 19, 22, 25, 28, 31, 34]
+best_cells=[0, 1, 2, 3, 4, 5, 6, 8, 10, 12, 14, 16, 18, 19, 22, 25, 28, 31, 34]
 
 def get_initial_sun_exposed_cells(day):
     sun_exposed_cells = []
@@ -34,14 +34,14 @@ def number_tree_size(trees, to_play=True):
 
 
 class Cell:
-    def __init__(self, cell_index, richness, neighbors):
-        self.cell_index = cell_index
+    def __init__(self, cell_id, richness, neighbors):
+        self.cell_id = cell_id
         self.richness = richness
         self.neighbors = neighbors
 
 class Tree:
-    def __init__(self, cell_index, size, is_mine, is_dormant):
-        self.cell_index = cell_index
+    def __init__(self, cell_id, size, is_mine, is_dormant):
+        self.cell_id = cell_id
         self.size = size
         self.is_mine = is_mine
         self.is_dormant = is_dormant
@@ -111,16 +111,16 @@ class Game:
         res_trees = []
         for tree in self.trees:
             if end is None:
-                if tree.cell_index == start:
+                if tree.cell_id == start:
                     return tree
             else:
-                if start <= tree.cell_index <= end:
+                if start <= tree.cell_id <= end:
                     res_trees.append(tree)
         return res_trees
 
     def get_cell_at_index(self, index):
         for cell in self.board:
-            if cell.cell_index == index:
+            if cell.cell_id == index:
                 return cell
 
     def print_state_game(self):
@@ -137,7 +137,7 @@ class Game:
 
         print_debug("number_of_trees: " + str(len(self.trees)))
         for tree in self.trees:
-            print_debug(" -cell_index: " + str(tree.cell_index))
+            print_debug(" -cell_id: " + str(tree.cell_id))
             print_debug("  size: " + str(tree.size))
             print_debug("  is_mine: " + str(tree.is_mine))
             print_debug("  is_dormant: " + str(tree.is_dormant))
@@ -170,7 +170,7 @@ class Game:
                 return self
             # print_debug("pos of seeds:")
             # for tree in [tree for tree in self.get_trees_player() if (tree.size == 0)]:
-                # print_debug(tree.cell_index) # issue on calcul
+                # print_debug(tree.cell_id) # issue on calcul
             # print_debug("cost of SEED: " + str(len([tree for tree in self.get_trees_player() if (tree.size == 0)])))
             self.sun[to_play == True] -= len([tree for tree in self.get_trees_player(to_play) if (tree.size == 0)])
             self.trees.append(Tree(action.target_cell_id, 0, 1, 1))
@@ -209,15 +209,15 @@ class Game:
 
 
 
-    def all_seed_actions_from_tree(self, cell_index, depth, visited_cells_ids):
+    def all_seed_actions_from_tree(self, cell_id, depth, visited_cells_ids):
         actions = []
-        neighbors = self.get_cell_at_index(cell_index).neighbors
+        neighbors = self.get_cell_at_index(cell_id).neighbors
         for neighbor_id in neighbors:
             if neighbor_id not in visited_cells_ids and self.get_cell_at_index(neighbor_id).richness > 0 and self.get_tree_at_index(neighbor_id) is None:
                 visited_cells_ids.append(neighbor_id)
-                actions.append(Action(ActionType.SEED, neighbor_id, cell_index))
+                actions.append(Action(ActionType.SEED, neighbor_id, cell_id))
                 if depth > 0:
-                    actions.extend(self.all_seed_actions_from_tree(cell_index, depth - 1, visited_cells_ids))
+                    actions.extend(self.all_seed_actions_from_tree(cell_id, depth - 1, visited_cells_ids))
         return actions
 
     def find_all_possible_actions(self, to_play=True):
@@ -226,12 +226,12 @@ class Game:
         for tree in player_trees:
             if not tree.is_dormant:
                 if self.sun[to_play == True] >= 4 and tree.size == 3:
-                    actions.append(Action(ActionType.COMPLETE, tree.cell_index))
+                    actions.append(Action(ActionType.COMPLETE, tree.cell_id))
                 elif tree.size < 3 and self.sun[to_play == True] >= costs_grow[tree.size] + len([trees for trees in player_trees if trees.size == tree.size]):
-                    actions.append(Action(ActionType.GROW, tree.cell_index))
+                    actions.append(Action(ActionType.GROW, tree.cell_id))
                 if (tree.size > 0) and self.sun[to_play == True] >= len(self.get_seeds_player(to_play)):
-                    visited_cells_ids = [-1, tree.cell_index]
-                    actions.extend(self.all_seed_actions_from_tree(tree.cell_index, tree.size, visited_cells_ids))
+                    visited_cells_ids = [-1, tree.cell_id]
+                    actions.extend(self.all_seed_actions_from_tree(tree.cell_id, tree.size, visited_cells_ids))
         # print_debug("***********ACTIONS:***********")
         # actions.sort(key=Action.sort_actions)
         # for action in actions:
@@ -239,17 +239,17 @@ class Game:
         # print_debug("**************")
         return actions # to try best cadidate first (like COMPLETE action before others)
 
-    def interesting_seed_actions_from_tree(self, cell_index, depth, visited_cells_ids):
+    def interesting_seed_actions_from_tree(self, cell_id, depth, visited_cells_ids):
         actions = []
-        neighbors = self.get_cell_at_index(cell_index).neighbors
+        neighbors = self.get_cell_at_index(cell_id).neighbors
         for neighbor_id in neighbors:
             if neighbor_id not in visited_cells_ids and self.get_cell_at_index(neighbor_id).richness > 0 and self.get_tree_at_index(neighbor_id) is None:
                 visited_cells_ids.append(neighbor_id)
-                seed_action = Action(ActionType.SEED, neighbor_id, cell_index)
+                seed_action = Action(ActionType.SEED, neighbor_id, cell_id)
                 if self.position_is_optimal(seed_action):
                     actions.append(seed_action)
                 if depth > 0:
-                    actions.extend(self.interesting_seed_actions_from_tree(cell_index, depth - 1, visited_cells_ids))
+                    actions.extend(self.interesting_seed_actions_from_tree(cell_id, depth - 1, visited_cells_ids))
         return actions
 
     def find_interesting_actions(self, to_play=True):
@@ -260,12 +260,12 @@ class Game:
             if not tree.is_dormant:
                 if tree.size == 3:
                     if self.sun[to_play == True] >= 4:
-                        actions.append(Action(ActionType.COMPLETE, tree.cell_index))
+                        actions.append(Action(ActionType.COMPLETE, tree.cell_id))
                 elif self.sun[to_play == True] >= costs_grow[tree.size] + len([trees for trees in player_trees if trees.size == tree.size]):
-                    actions.append(Action(ActionType.GROW, tree.cell_index))
+                    actions.append(Action(ActionType.GROW, tree.cell_id))
                 if tree.size > 1 and self.sun[to_play == True] >= player_nb_seeds:
-                    visited_cells_ids = [-1, tree.cell_index]
-                    actions.extend(self.interesting_seed_actions_from_tree(tree.cell_index, tree.size, visited_cells_ids))
+                    visited_cells_ids = [-1, tree.cell_id]
+                    actions.extend(self.interesting_seed_actions_from_tree(tree.cell_id, tree.size, visited_cells_ids))
         # print_debug("***********ACTIONS:***********")
         # actions.sort(key=sort_actions)
         # for action in actions:
@@ -311,127 +311,155 @@ class Game:
         # print_debug('')
         return score + suns + score_tree
 
-    def compute_next_action2(self):
-        """
-        if self.score[1] > self.score[1] and not self.opponent_is_waiting and :
-            #print_debug('Wait strategique ? pas sur mdr')
-            return "WAIT Wait strategique ?"
-        """
-        most_intern_cell = 37
-        most_extern_cell = 0
-        best_action = Action(ActionType.WAIT)
-        bigger_grow_cadidate = -1
-        output = 'WAIT'
-        #self.possible_actions.sort(key=Action.sort_actions)
+    # def compute_next_action2(self):
+    #     """
+    #     if self.score[1] > self.score[1] and not self.opponent_is_waiting and :
+    #         #print_debug('Wait strategique ? pas sur mdr')
+    #         return "WAIT Wait strategique ?"
+    #     """
+    #     most_intern_cell = 37
+    #     most_extern_cell = 0
+    #     best_action = Action(ActionType.WAIT)
+    #     bigger_grow_cadidate = -1
+    #     output = 'WAIT'
+    #     #self.possible_actions.sort(key=Action.sort_actions)
 
-        # mode on plante a gogo
-        if self.day < 6 or len(self.get_trees_player()) < 10:
-            for action in self.possible_actions:
-                if (action.type == ActionType.GROW and
-                action.target_cell_id in best_cells):
-                    if (action.target_cell_id < most_intern_cell):
-                        most_intern_cell = action.target_cell_id
-                        size_target = self.get_tree_at_index(action.target_cell_id).size
-                        if (size_target > bigger_grow_cadidate):
-                            bigger_grow_cadidate = size_target
-                            best_action = action
-                elif (action.type == ActionType.SEED and
-                best_action.type != ActionType.GROW and
-                action.target_cell_id in best_cells):
-                    if (action.target_cell_id > most_extern_cell):
-                        most_extern_cell = action.target_cell_id
-                        best_action = action
-            if self.day == 0 and best_action.type == ActionType.WAIT:
-                for action in self.possible_actions:
-                    if action.type == ActionType.SEED:
-                        best_action = action
-        elif 6 <= self.day < 25:
-            for action in self.possible_actions:
-                #print_PA(action)
-                # COMPLETE au centre if possible
-                if (action.type == ActionType.COMPLETE and
-                (len(self.get_trees_player()) > 8 or self.day > 20)):
-                    if (action.target_cell_id < most_intern_cell):
-                        most_intern_cell = action.target_cell_id
-                        best_action = action
-                # GROW en priorité a l'interieur
-                elif (action.type == ActionType.GROW and
-                best_action.type != ActionType.COMPLETE):
-                    if (action.target_cell_id < most_intern_cell):
-                        most_intern_cell = action.target_cell_id
-                        size_target = self.get_tree_at_index(action.target_cell_id).size
-                        if (size_target > bigger_grow_cadidate):
-                            bigger_grow_cadidate = size_target
-                            best_action = action
-                # SEED if no GROW avalaible and day < 14
-                elif (action.type == ActionType.SEED and
-                best_action.type != ActionType.COMPLETE and
-                best_action.type != ActionType.GROW and
-                (self.day < 14 or len(self.get_trees_player())) == 1):
-                    if (action.target_cell_id > most_extern_cell):
-                        most_extern_cell = action.target_cell_id
-                        best_action = action
-        elif 15 <= self.day < 20:
-            pass
-        elif 20 <= self.day:
-            pass
-        return best_action
+    #     # mode on plante a gogo
+    #     if self.day < 6 or len(self.get_trees_player()) < 10:
+    #         for action in self.possible_actions:
+    #             if (action.type == ActionType.GROW and
+    #             action.target_cell_id in best_cells):
+    #                 if (action.target_cell_id < most_intern_cell):
+    #                     most_intern_cell = action.target_cell_id
+    #                     size_target = self.get_tree_at_index(action.target_cell_id).size
+    #                     if (size_target > bigger_grow_cadidate):
+    #                         bigger_grow_cadidate = size_target
+    #                         best_action = action
+    #             elif (action.type == ActionType.SEED and
+    #             best_action.type != ActionType.GROW and
+    #             action.target_cell_id in best_cells):
+    #                 if (action.target_cell_id > most_extern_cell):
+    #                     most_extern_cell = action.target_cell_id
+    #                     best_action = action
+    #         if self.day == 0 and best_action.type == ActionType.WAIT:
+    #             for action in self.possible_actions:
+    #                 if action.type == ActionType.SEED:
+    #                     best_action = action
+    #     elif 6 <= self.day < 25:
+    #         for action in self.possible_actions:
+    #             #print_PA(action)
+    #             # COMPLETE au centre if possible
+    #             if (action.type == ActionType.COMPLETE and
+    #             (len(self.get_trees_player()) > 8 or self.day > 20)):
+    #                 if (action.target_cell_id < most_intern_cell):
+    #                     most_intern_cell = action.target_cell_id
+    #                     best_action = action
+    #             # GROW en priorité a l'interieur
+    #             elif (action.type == ActionType.GROW and
+    #             best_action.type != ActionType.COMPLETE):
+    #                 if (action.target_cell_id < most_intern_cell):
+    #                     most_intern_cell = action.target_cell_id
+    #                     size_target = self.get_tree_at_index(action.target_cell_id).size
+    #                     if (size_target > bigger_grow_cadidate):
+    #                         bigger_grow_cadidate = size_target
+    #                         best_action = action
+    #             # SEED if no GROW avalaible and day < 14
+    #             elif (action.type == ActionType.SEED and
+    #             best_action.type != ActionType.COMPLETE and
+    #             best_action.type != ActionType.GROW and
+    #             (self.day < 14 or len(self.get_trees_player())) == 1):
+    #                 if (action.target_cell_id > most_extern_cell):
+    #                     most_extern_cell = action.target_cell_id
+    #                     best_action = action
+    #     elif 15 <= self.day < 20:
+    #         pass
+    #     elif 20 <= self.day:
+    #         pass
+    #     return best_action
 
 
+    def is_neighbors(self, action):
+        neighbors = []
+        for tree in self.get_trees_player():
+            neighbors.extend(self.get_cell_at_index(tree.cell_id).neighbors)
+        return action.target_cell_id in neighbors
 
     def compute_next_action(self):
         NB_TREE_0_REQUIRED=1
         NB_TREE_1_REQUIRED=1
-        NB_TREE_2_REQUIRED=8
-        NB_TREE_3_REQUIRED=0
-        NB_TREE_2_REQUIRED_EXT=2
-        NB_TREE_3_REQUIRED_EXT=2
+        NB_TREE_2_REQUIRED=1
+        NB_TREE_3_REQUIRED=3
+        NB_TREE_2_REQUIRED_EXT=4
+        NB_TREE_3_REQUIRED_EXT=1
 
         best_action = Action(ActionType.WAIT)
         nb_tree_size = number_tree_size(self.get_trees_player())
+        nb_tree_size_ext = number_tree_size(self.get_tree_at_index(19, 36))
         bigger_grow_cadidate = -1
+        smaller_grow_cadidate = 4
         output = 'WAIT'
         for action in self.possible_actions:
-            if self.day > 20:
+            if self.day > 22:
                 if action.type == ActionType.COMPLETE:
-                    if most_inside(action, best_action):
+                    if most_inside_so_far(action, best_action):
                         best_action = action
                 # elif action.type == ActionType.GROW and best_action.type not in [ActionType.COMPLETE]:
-                #     if most_inside(action, best_action):
+                #     if most_inside_so_far(action, best_action):
                 #         best_action = action
 
 
             elif nb_tree_size[2] < NB_TREE_2_REQUIRED or nb_tree_size[3] < NB_TREE_3_REQUIRED:
+                # faut faire des arbres
                 if action.type == ActionType.GROW:
                     # if self.get_tree_at_index(action.target_cell_id).size <= 2:
-                        nb_tree_size_ext = number_tree_size(self.get_tree_at_index(19, 36))
                         if nb_tree_size_ext[2] < NB_TREE_2_REQUIRED_EXT or nb_tree_size_ext[3] < NB_TREE_3_REQUIRED_EXT:
-                            if most_outside(action, best_action):
+                            if most_outside_so_far(action, best_action):
                                 size_target = self.get_tree_at_index(action.target_cell_id).size
-                                if size_target > bigger_grow_cadidate:
-                                    bigger_grow_cadidate = size_target
+                                if size_target < smaller_grow_cadidate:
+                                    smaller_grow_cadidate = size_target
                                     best_action = action
-                        else: # si jai assez (trop) d'arbres size 2 et 3
-                            if most_inside(action, best_action):
+                        else: # si jai assez d'arbres size 2 et 3 outside
+                            if most_inside_so_far(action, best_action):
                                 size_target = self.get_tree_at_index(action.target_cell_id).size
-                                if size_target > bigger_grow_cadidate:
-                                    bigger_grow_cadidate = size_target
+                                if size_target < smaller_grow_cadidate:
+                                    smaller_grow_cadidate = size_target
                                     best_action = action
-                elif action.type == ActionType.SEED and best_action.type not in [ActionType.GROW]:
+                if action.type == ActionType.SEED and best_action.type not in [ActionType.GROW] and not self.is_neighbors(action):
                     if action.target_cell_id in best_cells:
+                        if nb_tree_size_ext[2] < NB_TREE_2_REQUIRED_EXT or nb_tree_size_ext[3] < NB_TREE_3_REQUIRED_EXT:
+                            if most_outside_so_far(action, best_action):
+                                best_action = action
+                        else: # si jai assez d'arbres size 2 et 3 outside
+                            if most_inside_so_far(action, best_action):
+                                best_action = action
+                    # nb_tree_size_ext = number_tree_size(self.get_tree_at_index(19, 36))
+                    # if nb_tree_size_ext[2] < NB_TREE_2_REQUIRED_EXT or nb_tree_size_ext[3] < NB_TREE_3_REQUIRED_EXT:
+                    #     if most_outside_so_far(action, best_action):
+                    #         size_target = self.get_tree_at_index(action.target_cell_id).size
+                    #         if size_target > bigger_grow_cadidate:
+                    #             bigger_grow_cadidate = size_target
+                    #             best_action = action
+                    # else: # si jai assez d'arbres size 2 et 3 outside
+                    #     if most_inside_so_far(action, best_action):
+                    #         size_target = self.get_tree_at_index(action.target_cell_id).size
+                    #         if size_target > bigger_grow_cadidate:
+                    #             bigger_grow_cadidate = size_target
+                    #             best_action = action
+                """
+                if action.type == ActionType.COMPLETE and best_action.type not in [ActionType.SEED, ActionType.GROW]:
+                    if action.target_cell_id in best_cells and self.is_neighbors(action):
                         best_action = action
-                elif action.type == ActionType.COMPLETE and best_action.type not in [ActionType.SEED, ActionType.GROW]:
-                    if action.target_cell_id in best_cells:
-                        best_action = action
-            elif nb_tree_size[0] < NB_TREE_0_REQUIRED or nb_tree_size[1] < NB_TREE_1_REQUIRED: # si jai assez (trop) d'arbres size 2 et 3 MAIS PAS 0 et 1
+                """
+            else: # si jai assez (trop) d'arbres size 2 et 3
                 if action.type == ActionType.COMPLETE:
-                    if most_inside(action, best_action):
+                    if most_inside_so_far(action, best_action):
                         best_action = action
+                # if nb_tree_size[0] < NB_TREE_0_REQUIRED or nb_tree_size[1] < NB_TREE_1_REQUIRED: # si jai pas assez d'arbres size 0 et 1
                 if action.type == ActionType.GROW and best_action.type not in [ActionType.COMPLETE]:
                     if self.get_tree_at_index(action.target_cell_id).size <= 2:
                         nb_tree_size_ext = number_tree_size(self.get_tree_at_index(19, 36))
                         if nb_tree_size_ext[2] < NB_TREE_2_REQUIRED_EXT or nb_tree_size_ext[3] < NB_TREE_3_REQUIRED_EXT:
-                            if most_outside(action, best_action):
+                            if most_outside_so_far(action, best_action):
                                 size_target = self.get_tree_at_index(action.target_cell_id).size
                                 if size_target > bigger_grow_cadidate:
                                     bigger_grow_cadidate = size_target
@@ -440,12 +468,10 @@ class Game:
 
 # END CLASS GAME
 
-
-
-def most_inside(action, best_action):
+def most_inside_so_far(action, best_action):
     return best_action.target_cell_id is None or action.target_cell_id < best_action.target_cell_id
 
-def most_outside(action, best_action):
+def most_outside_so_far(action, best_action):
     return best_action.target_cell_id is None or action.target_cell_id > best_action.target_cell_id
 
 
@@ -502,8 +528,8 @@ def minimax(game, depth, alpha=-math.inf, beta=math.inf, best_actions=[], time_i
 number_of_cells = int(input())
 game = Game()
 for i in range(number_of_cells):
-    cell_index, richness, neigh_0, neigh_1, neigh_2, neigh_3, neigh_4, neigh_5 = [int(j) for j in input().split()]
-    # print_debug("cell_index: " + str(cell_index))
+    cell_id, richness, neigh_0, neigh_1, neigh_2, neigh_3, neigh_4, neigh_5 = [int(j) for j in input().split()]
+    # print_debug("cell_id: " + str(cell_id))
     # print_debug("richness: " + str(richness))
     # print_debug("neigh_0: " + str(neigh_0))
     # print_debug("neigh_1: " + str(neigh_1))
@@ -511,7 +537,7 @@ for i in range(number_of_cells):
     # print_debug("neigh_3: " + str(neigh_3))
     # print_debug("neigh_4: " + str(neigh_4))
     # print_debug("neigh_5: " + str(neigh_5))
-    game.board.append(Cell(cell_index, richness, [neigh_0, neigh_1, neigh_2, neigh_3, neigh_4, neigh_5]))
+    game.board.append(Cell(cell_id, richness, [neigh_0, neigh_1, neigh_2, neigh_3, neigh_4, neigh_5]))
 
 while True:
     t0 = time.time()
@@ -530,11 +556,11 @@ while True:
     game.trees.clear()
     for i in range(number_of_trees):
         inputs = input().split()
-        cell_index = int(inputs[0])
+        cell_id = int(inputs[0])
         size = int(inputs[1])
         is_mine = inputs[2] != "0"
         is_dormant = inputs[3] != "0"
-        game.trees.append(Tree(cell_index, size, is_mine, is_dormant))
+        game.trees.append(Tree(cell_id, size, is_mine, is_dormant))
     number_of_possible_actions = int(input())
     game.possible_actions.clear()
     for i in range(number_of_possible_actions):

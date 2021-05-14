@@ -24,6 +24,9 @@ ferme a soleil sur les bords et grow + complete au centre
 
 check l'ombre sauf si l'objectif est de grow pour complete
 
+
+À l'extérieur arbre de size 2 et à l'intérieur arbre de size 3
+seed puis grow de 1 avant de reseed au cente
 *******************************************************
 if day < 20:
 	if j'ai pas darbre size 2 ou 3:
