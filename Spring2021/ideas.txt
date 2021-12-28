@@ -42,11 +42,6 @@ else:
 		priorité a l'interieur
 
 
-
-
-loup garou
-maxi fete dans un chateau pour mes 25 ans
-
 en sec:
 5       0.008909940719604492
 4       0.009639978408813477
